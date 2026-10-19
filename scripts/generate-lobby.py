@@ -166,11 +166,55 @@ for cx in (-13,0,13):
 for x in (-18,-9,9,18):
  glow(x,65,-25,'shroomlight');glow(x,66,-25,'red_carpet')
 lighting += ['gamerule doDaylightCycle false','gamerule doWeatherCycle false','time set 12500','weather clear']
+# Palace furnishings: guarded, block-only update with an unobstructed central aisle.
+furniture=[]
+def furnish(x,y,z,material):
+ previous=blocks.get((x,y,z),'air')
+ box(x,y,z,x,y,z,material)
+ furniture.append(f'execute if block {x} {y} {z} minecraft:{previous} run setblock {x} {y} {z} minecraft:{material}')
+def furnishing_box(x1,y1,z1,x2,y2,z2,material):
+ for x in range(x1,x2+1):
+  for y in range(y1,y2+1):
+   for z in range(z1,z2+1):furnish(x,y,z,material)
+# West lounge: an ivory-edged wine rug, two facing sofas and low wooden tables.
+furnishing_box(-18,66,-31,-6,66,-26,'white_carpet')
+furnishing_box(-17,66,-30,-7,66,-27,'red_carpet')
+for x,back,facing in [(-16,-17,'west'),(-8,-7,'east')]:
+ for z in range(-30,-26):
+  furnish(x,66,z,'crimson_stairs[facing='+facing+']')
+  furnish(back,66,z,'red_wool');furnish(back,67,z,'red_wool')
+ for z in (-31,-26):furnish(x,66,z,'polished_blackstone_brick_slab[type=double]')
+for z in (-29,-28):
+ furnish(-12,66,z,'dark_oak_fence');furnish(-12,67,z,'dark_oak_pressure_plate')
+furnish(-12,66,-31,'dark_oak_planks');furnish(-12,67,-31,'red_candle[candles=2,lit=true]')
+# Full-height bookcases and an empty reading lectern: no books or loot to collect.
+for x1,x2 in [(-19,-6),(6,19)]:
+ furnishing_box(x1,66,-33,x2,69,-33,'bookshelf')
+ furnishing_box(x1,70,-33,x2,70,-33,'crimson_slab[type=top]')
+ for x in (x1,x2):furnishing_box(x,66,-33,x,69,-33,'stripped_dark_oak_log')
+for x in (-18,-6,6,18):furnish(x,71,-33,'lantern')
+furnish(-19,66,-29,'lectern[facing=east]')
+# East reception: ivory counter, burgundy top, a high-backed chair and guest seats.
+furnishing_box(8,66,-28,16,66,-28,'smooth_quartz')
+furnishing_box(8,67,-28,16,67,-28,'crimson_slab[type=bottom]')
+for x in (8,16):furnish(x,67,-28,'lantern')
+furnish(12,66,-31,'crimson_stairs[facing=north]')
+furnish(12,67,-32,'red_wool');furnish(12,68,-32,'gold_block')
+for x in (9,15):
+ furnish(x,66,-24,'crimson_stairs[facing=south]')
+ furnish(x,66,-23,'red_wool');furnish(x,67,-23,'red_wool')
+# Symmetrical sideboards, warm reading lights and potted flowers complete the room.
+for x in (-19,19):
+ for z in (-25,-24):furnish(x,66,z,'dark_oak_planks')
+ furnish(x,67,-25,'lantern');furnish(x,67,-24,'potted_azalea_bush')
+# The entrance and central carpet (x=-2..2) stay completely clear.
+assert all(not(-2<=int(line.split()[3])<=2) for line in furniture)
 # Static invisible safety shell, in addition to the visible native world border.
 for side in (-49,49):box(side,58,-49,side,112,49,'barrier');box(-49,58,side,49,112,side,'barrier')
 commands += ['setworldspawn 0 65 12 180 0','worldborder center 0 0','worldborder set 100','gamerule doMobSpawning false','gamerule doMobLoot false','gamerule doEntityDrops false','gamerule mobGriefing false','gamerule doDaylightCycle false','gamerule doWeatherCycle false','gamerule doFireTick false','time set 12500','weather clear','data modify storage vampyuyu:lobby built set value 1b']
 func=out/'data/vampyuyu/function';func.mkdir(parents=True,exist_ok=True)
 (func/'build_once.mcfunction').write_text('# Original Vampyuyu Sanctum · reproducible block-only build\n'+'\n'.join(commands)+'\n')
+(func/'furniture.mcfunction').write_text('# Guarded block-only palace furnishing upgrade.\n'+'\n'.join(furniture)+'\n')
 (func/'warm_lights.mcfunction').write_text('# Guarded lighting upgrade for an existing Sanctum; never rebuilds terrain.\n'+'\n'.join(lighting)+'\n')
 (func/'install.mcfunction').write_text('execute unless data storage vampyuyu:lobby built run function vampyuyu:build_once\n')
 tag=out/'data/minecraft/tags/function';tag.mkdir(parents=True,exist_ok=True);(tag/'load.json').write_text(json.dumps({'values':['vampyuyu:install']},indent=2)+'\n')
