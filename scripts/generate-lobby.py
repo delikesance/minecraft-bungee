@@ -209,6 +209,8 @@ for x in (-19,19):
  furnish(x,67,-25,'lantern');furnish(x,67,-24,'potted_azalea_bush')
 # The entrance and central carpet (x=-2..2) stay completely clear.
 assert all(not(-2<=int(line.split()[3])<=2) for line in furniture)
+# Retain the previous bat geometry only to derive a safe bat-to-cat migration.
+pre_statue_blocks=dict(blocks);pre_statue_commands=len(commands)
 # Central bat sculpture: a freestanding block statue, never a living bat or entity.
 statue=[]
 def sculpt(x,y,z,material):
@@ -242,12 +244,52 @@ sculpt(0,72,-26,'chiseled_polished_blackstone')
 for x in (-3,3):
  for y in (66,67):
   for z in range(-30,-25):assert (x,y,z) not in {(int(c.split()[3]),int(c.split()[4]),int(c.split()[5])) for c in statue}
+# Replace the default centerpiece with a sitting cat; restore every former wing block.
+bat_final=dict(blocks)
+blocks.clear();blocks.update(pre_statue_blocks);del commands[pre_statue_commands:]
+statue=[]
+for x in range(-2,3):
+ for z in range(-30,-25):sculpt(x,66,z,'smooth_quartz')
+for x in (-2,2):
+ for z in (-30,-26):sculpt(x,66,z,'gold_block')
+for x in range(-1,2):
+ for z in range(-29,-26):sculpt(x,67,z,'gilded_blackstone')
+# Compact seated body and broad feline head, looking towards the entrance.
+for x in range(-1,2):
+ for y in range(68,71):
+  for z in range(-29,-26):sculpt(x,y,z,'polished_blackstone_bricks')
+for x in range(-2,3):
+ for y in range(71,74):
+  for z in range(-28,-25):sculpt(x,y,z,'polished_blackstone_bricks')
+for x in (-2,2):
+ for z in (-29,-28):
+  for y in (68,69):sculpt(x,y,z,'polished_blackstone_bricks')
+ sculpt(x,74,-27,'polished_blackstone_brick_stairs[facing=south]')
+ sculpt(x,73,-26,'red_nether_bricks')
+# Ivory paws and muzzle, a wine collar, gold bell and warm glowing eyes.
+for x in (-1,1):
+ sculpt(x,68,-26,'calcite');sculpt(x,71,-25,'calcite');sculpt(x,72,-26,'shroomlight')
+sculpt(0,69,-26,'calcite')
+for x in (-1,0,1):sculpt(x,70,-26,'red_nether_bricks')
+sculpt(0,70,-25,'gold_block');sculpt(0,71,-25,'pink_terracotta')
+# A raised, curled tail on the right; the two walking aisles stay clear at head height.
+for x,y,z in [(2,68,-27),(3,68,-27),(3,69,-27),(3,70,-27),(2,70,-27)]:sculpt(x,y,z,'polished_blackstone_bricks')
+sculpt(2,71,-27,'calcite')
+# Only replace the known bat materials; preserve any operator edits in the footprint.
+cat_patch=[]
+for pos in sorted(set(bat_final)|set(blocks)):
+ old=bat_final.get(pos,'air');new=blocks.get(pos,'air')
+ if old!=new:
+  x,y,z=pos;cat_patch.append(f'execute if block {x} {y} {z} minecraft:{old} run setblock {x} {y} {z} minecraft:{new}')
+for x in (-3,3):
+ for y in (66,67):
+  for z in range(-30,-25):assert (x,y,z) not in blocks
 # Static invisible safety shell, in addition to the visible native world border.
 for side in (-49,49):box(side,58,-49,side,112,49,'barrier');box(-49,58,side,49,112,side,'barrier')
 commands += ['setworldspawn 0 65 12 180 0','worldborder center 0 0','worldborder set 100','gamerule doMobSpawning false','gamerule doMobLoot false','gamerule doEntityDrops false','gamerule mobGriefing false','gamerule doDaylightCycle false','gamerule doWeatherCycle false','gamerule doFireTick false','time set 12500','weather clear','data modify storage vampyuyu:lobby built set value 1b']
 func=out/'data/vampyuyu/function';func.mkdir(parents=True,exist_ok=True)
 (func/'build_once.mcfunction').write_text('# Original Vampyuyu Sanctum · reproducible block-only build\n'+'\n'.join(commands)+'\n')
-(func/'bat_statue.mcfunction').write_text('# Guarded central bat sculpture upgrade; block-only, no entities.\n'+'\n'.join(statue)+'\n')
+(func/'cat_statue.mcfunction').write_text('# Guarded bat-to-cat replacement; restores former wing positions, no entities.\n'+'\n'.join(cat_patch)+'\n')
 (func/'furniture.mcfunction').write_text('# Guarded block-only palace furnishing upgrade.\n'+'\n'.join(furniture)+'\n')
 (func/'warm_lights.mcfunction').write_text('# Guarded lighting upgrade for an existing Sanctum; never rebuilds terrain.\n'+'\n'.join(lighting)+'\n')
 (func/'install.mcfunction').write_text('execute unless data storage vampyuyu:lobby built run function vampyuyu:build_once\n')
