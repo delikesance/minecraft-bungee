@@ -209,11 +209,45 @@ for x in (-19,19):
  furnish(x,67,-25,'lantern');furnish(x,67,-24,'potted_azalea_bush')
 # The entrance and central carpet (x=-2..2) stay completely clear.
 assert all(not(-2<=int(line.split()[3])<=2) for line in furniture)
+# Central bat sculpture: a freestanding block statue, never a living bat or entity.
+statue=[]
+def sculpt(x,y,z,material):
+ previous=blocks.get((x,y,z),'air')
+ box(x,y,z,x,y,z,material)
+ statue.append(f'execute if block {x} {y} {z} minecraft:{previous} run setblock {x} {y} {z} minecraft:{material}')
+# Ivory plinth with gold corners and a dark, gilded upper pedestal.
+for x in range(-2,3):
+ for z in range(-30,-25):sculpt(x,66,z,'smooth_quartz')
+for x in (-2,2):
+ for z in (-30,-26):sculpt(x,66,z,'gold_block')
+for x in range(-1,2):
+ for z in range(-29,-26):sculpt(x,67,z,'gilded_blackstone')
+# Scalloped spread wings: blackstone edge, burgundy membranes, pointed ears.
+silhouette=['.....#.#.....','#....###....#','##...###...##','###..###..###','#############','.###########.','..##.###.##..','.....###.....']
+pixels={(col-6,74-row) for row,line in enumerate(silhouette) for col,c in enumerate(line) if c=='#'}
+for x,y in sorted(pixels):
+ sculpt(x,y,-28,'polished_blackstone_bricks')
+ if abs(x)>=2 and all((x+dx,y+dy) in pixels for dx,dy in [(-1,0),(1,0),(0,-1),(0,1)]):
+  sculpt(x,y,-27,'red_nether_bricks')
+# A substantial three-dimensional body and head, with warm glowing eyes.
+for x in range(-1,2):
+ for y in range(68,74):
+  for z in (-29,-28,-27):sculpt(x,y,z,'polished_blackstone_bricks')
+for y in range(68,72):sculpt(0,y,-26,'red_nether_bricks')
+for x in (-1,1):
+ sculpt(x,73,-27,'shroomlight')
+ sculpt(x,74,-28,'polished_blackstone_brick_stairs[facing=south]')
+sculpt(0,72,-26,'chiseled_polished_blackstone')
+# The entrance remains clear; two full-height side aisles skirt the pedestal.
+for x in (-3,3):
+ for y in (66,67):
+  for z in range(-30,-25):assert (x,y,z) not in {(int(c.split()[3]),int(c.split()[4]),int(c.split()[5])) for c in statue}
 # Static invisible safety shell, in addition to the visible native world border.
 for side in (-49,49):box(side,58,-49,side,112,49,'barrier');box(-49,58,side,49,112,side,'barrier')
 commands += ['setworldspawn 0 65 12 180 0','worldborder center 0 0','worldborder set 100','gamerule doMobSpawning false','gamerule doMobLoot false','gamerule doEntityDrops false','gamerule mobGriefing false','gamerule doDaylightCycle false','gamerule doWeatherCycle false','gamerule doFireTick false','time set 12500','weather clear','data modify storage vampyuyu:lobby built set value 1b']
 func=out/'data/vampyuyu/function';func.mkdir(parents=True,exist_ok=True)
 (func/'build_once.mcfunction').write_text('# Original Vampyuyu Sanctum · reproducible block-only build\n'+'\n'.join(commands)+'\n')
+(func/'bat_statue.mcfunction').write_text('# Guarded central bat sculpture upgrade; block-only, no entities.\n'+'\n'.join(statue)+'\n')
 (func/'furniture.mcfunction').write_text('# Guarded block-only palace furnishing upgrade.\n'+'\n'.join(furniture)+'\n')
 (func/'warm_lights.mcfunction').write_text('# Guarded lighting upgrade for an existing Sanctum; never rebuilds terrain.\n'+'\n'.join(lighting)+'\n')
 (func/'install.mcfunction').write_text('execute unless data storage vampyuyu:lobby built run function vampyuyu:build_once\n')
