@@ -1,0 +1,14 @@
+name: VampyuyuLobby
+version: 0.4.0
+main: win.vampyuyu.lobby.LobbySelector
+api-version: '1.19'
+depend: [VampyuyuNetwork]
+commands:
+  lobbybuild:
+    description: Toggle lobby building and inventory maintenance
+    usage: /lobbybuild [on|off]
+    permission: vampyuyu.lobby.build
+permissions:
+  vampyuyu.lobby.build:
+    default: op
+    description: Enter explicit lobby maintenance mode

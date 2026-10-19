@@ -1,0 +1,11 @@
+{
+ auto_https disable_redirects
+ admin off
+}
+https://panel.vampyuyu.win {
+ tls /run/tls/origin.pem /run/tls/origin-key.pem
+ encode zstd gzip
+ reverse_proxy panel:8080 {
+  flush_interval -1
+ }
+}

@@ -1,0 +1,34 @@
+config-version = "2.7"
+bind = "0.0.0.0:25565"
+motd = "<green>Vampyuyu</green> <gray>Creative & Survival</gray>"
+show-max-players = 40
+online-mode = true
+force-key-authentication = true
+player-info-forwarding-mode = "modern"
+forwarding-secret-file = "forwarding.secret"
+announce-forge = false
+kick-existing-players = false
+ping-passthrough = "DISABLED"
+enable-player-address-logging = false
+[servers]
+lobby = "lobby:25565"
+creative = "creative:25565"
+survival = "survival:25565"
+try = ["lobby"]
+[forced-hosts]
+[advanced]
+compression-threshold = 256
+compression-level = -1
+login-ratelimit = 3000
+connection-timeout = 5000
+read-timeout = 30000
+haproxy-protocol = false
+tcp-fast-open = false
+bungee-plugin-message-channel = true
+show-ping-requests = false
+failover-on-unexpected-server-disconnect = true
+log-command-executions = false
+log-player-connections = true
+accepts-transfers = false
+[query]
+enabled = false

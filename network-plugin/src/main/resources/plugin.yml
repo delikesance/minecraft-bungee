@@ -1,0 +1,19 @@
+name: VampyuyuNetwork
+version: 0.4.1
+main: win.vampyuyu.network.NetworkDisplay
+api-version: '1.21'
+description: Network roles, limited role commands, world selector and branded TAB list.
+commands:
+  menu:
+    description: Choose Lobby, Creative or Survival from any world
+    usage: /menu
+  fly:
+    description: Toggle your own flight when your role permits it
+    usage: /fly
+    permission: vampyuyu.fly
+  vampyuyuoperator:
+    description: Console-only operator management by UUID
+permissions:
+  vampyuyu.fly:
+    description: Toggle your own flight
+    default: false

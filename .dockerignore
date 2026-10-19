@@ -1,0 +1,13 @@
+.git
+.env*
+state
+secrets
+backups
+archives
+*.zip
+web/node_modules
+web/dist
+lobby/target
+
+arena-plugin/target
+network-plugin/target

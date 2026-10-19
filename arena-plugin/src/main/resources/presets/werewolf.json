@@ -1,0 +1,39 @@
+{
+  "id": "werewolf",
+  "name": "Moonlit village",
+  "worldName": "world",
+  "preset": "werewolf",
+  "bounds": {
+    "minX": -20,
+    "minY": -64,
+    "minZ": -20,
+    "maxX": 20,
+    "maxY": 320,
+    "maxZ": 20
+  },
+  "spawn": {
+    "x": 0.5,
+    "y": 65,
+    "z": 0.5,
+    "yaw": 0,
+    "pitch": 0
+  },
+  "allowedBreakBlocks": [],
+  "allowedPlaceBlocks": [],
+  "allowPvP": false,
+  "allowChests": false,
+  "allowDoors": true,
+  "gameMode": "ADVENTURE",
+  "durationSeconds": 1800,
+  "minPlayers": 4,
+  "maxPlayers": 20,
+  "discussionSeconds": 60,
+  "voteSeconds": 30,
+  "nightSeconds": 30,
+  "werewolf": {
+    "roles": {},
+    "cupidSeconds": 15,
+    "witchSeconds": 15,
+    "hunterSeconds": 15
+  }
+}

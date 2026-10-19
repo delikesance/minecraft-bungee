@@ -1,0 +1,15 @@
+name: NexusArenaEngine
+version: 1.1.0
+main: win.vampyuyu.arena.NexusArenaEngine
+api-version: '1.21'
+folia-supported: true
+description: Isolated arenas, persistent player snapshots and cross-server invitations.
+authors: [Vampyuyu]
+commands:
+  arena:
+    description: Join, leave or manage a network arena
+    usage: /arena <list|join|leave|status|start|stop|announce|reload>
+permissions:
+  nexusarena.admin:
+    default: op
+    description: Configure and operate arenas

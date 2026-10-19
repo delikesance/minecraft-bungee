@@ -1,0 +1,59 @@
+# syntax=docker/dockerfile:1
+ARG MINECRAFT_IMAGE=itzg/minecraft-server:java21@sha256:9f87a7fd070a117584f57cd134bfd9448d4070d9ec1bf45fd3b083737211ab2b
+FROM node:24-alpine@sha256:44fce696f38ba8c987c4db89954051000bbd05ffd8d8659ba15ed4a8602e937f AS web
+WORKDIR /web
+COPY web/package*.json ./
+RUN npm ci
+COPY web/ ./
+RUN npm run build
+
+FROM golang:1.26-alpine@sha256:3082400e369fa24d5fc60bca20edab3f6d604e0c5a690ec66b295eff4dd87ade AS go-base
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN --mount=type=cache,target=/go/pkg/mod go mod download
+RUN mkdir -p /go/pkg/mod && chmod 1777 /go/pkg/mod
+FROM go-base AS dev
+CMD ["go", "run", "./cmd/panel"]
+FROM go-base AS build
+COPY cmd ./cmd
+COPY internal ./internal
+COPY --from=web /web/dist ./internal/panel/static
+RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build CGO_ENABLED=0 go build -trimpath -o /out/panel ./cmd/panel && CGO_ENABLED=0 go build -trimpath -o /out/controller ./cmd/controller && CGO_ENABLED=0 go build -trimpath -o /out/network ./cmd/network
+
+FROM alpine:3.22@sha256:5291449c3df73caf6ed85e649dec1b9e818b39a5d8c871e97afc13e9cd5e8fa8 AS runtime
+RUN apk add --no-cache ca-certificates && addgroup -g 1000 app && adduser -D -u 1000 -G app app
+USER 1000:1000
+WORKDIR /app
+FROM runtime AS panel
+COPY --from=build /out/panel /app/panel
+EXPOSE 8080
+ENTRYPOINT ["/app/panel"]
+FROM runtime AS controller
+COPY --from=build /out/controller /app/controller
+ENTRYPOINT ["/app/controller"]
+FROM runtime AS tools
+COPY --from=build /out/network /app/network
+ENTRYPOINT ["/app/network"]
+
+FROM maven:3-eclipse-temurin-21@sha256:d23342b1a070a07555f4ef20c085a81aa40e5f5b3288ebf8ddae2f67e9d760c8 AS lobby-build
+WORKDIR /build
+COPY lobby/pom.xml ./
+COPY lobby/src ./src
+RUN --mount=type=cache,target=/root/.m2 mvn --batch-mode package
+FROM maven:3-eclipse-temurin-21@sha256:d23342b1a070a07555f4ef20c085a81aa40e5f5b3288ebf8ddae2f67e9d760c8 AS network-build
+WORKDIR /build
+COPY network-plugin/pom.xml ./
+COPY network-plugin/src ./src
+RUN --mount=type=cache,target=/root/.m2 mvn --batch-mode package
+FROM maven:3-eclipse-temurin-21@sha256:d23342b1a070a07555f4ef20c085a81aa40e5f5b3288ebf8ddae2f67e9d760c8 AS arena-build
+WORKDIR /build
+COPY arena-plugin/pom.xml ./
+COPY arena-plugin/src ./src
+RUN --mount=type=cache,target=/root/.m2 mvn --batch-mode package
+FROM ${MINECRAFT_IMAGE} AS server
+COPY --from=network-build /build/target/network-display.jar /plugins/network-display.jar
+COPY --from=arena-build /build/target/nexus-arena-engine.jar /plugins/nexus-arena-engine.jar
+FROM server AS lobby
+COPY --from=lobby-build /build/target/lobby-selector.jar /plugins/lobby-selector.jar
+
+COPY infra/lobby-palace /opt/vampyuyu-lobby-palace

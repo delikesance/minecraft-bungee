@@ -1,0 +1,52 @@
+{
+  "id": "duel",
+  "name": "Crimson duels",
+  "worldName": "world",
+  "preset": "freeplay",
+  "bounds": {
+    "minX": -20,
+    "minY": -64,
+    "minZ": -20,
+    "maxX": 20,
+    "maxY": 320,
+    "maxZ": 20
+  },
+  "spawn": {
+    "x": 0.5,
+    "y": 65,
+    "z": 0.5,
+    "yaw": 0,
+    "pitch": 0
+  },
+  "allowedBreakBlocks": [],
+  "allowedPlaceBlocks": [],
+  "allowPvP": true,
+  "allowChests": false,
+  "allowDoors": true,
+  "gameMode": "SURVIVAL",
+  "durationSeconds": 1800,
+  "minPlayers": 2,
+  "maxPlayers": 16,
+  "discussionSeconds": 60,
+  "voteSeconds": 30,
+  "nightSeconds": 30,
+  "freeplay": {
+    "objective": "PVP",
+    "targetScore": 10,
+    "pointsPerEvent": 1,
+    "allowFlight": false,
+    "hunger": false,
+    "personalTime": 6000,
+    "weather": "CLEAR",
+    "kit": {
+      "IRON_SWORD": 1,
+      "SHIELD": 1,
+      "COOKED_BEEF": 16
+    },
+    "effects": {
+      "speed": 1
+    },
+    "checkpoints": [],
+    "instructions": "Defeat your opponents to earn points. First to 10 wins. Your original belongings are restored when leaving."
+  }
+}
