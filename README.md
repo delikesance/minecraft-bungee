@@ -302,7 +302,9 @@ See [NexusArenaEngine operations and architecture](arena-plugin/README.md) for s
 
 ![Vampyuyu Sanctum block preview](docs/lobby-preview.png)
 
-The Lobby is an original burgundy, ivory and gold floating palace: four spires, a bat courtyard, cherry gardens, reflecting pools and Creative/Survival gates. It uses only blocks; there are no NPCs, armor stands, item frames or decorative entities. English gate signs and the compass lead to the same network selector.
+The Lobby is an original burgundy, ivory and gold floating palace: four spires, a bat courtyard, cherry gardens, reflecting pools and Creative/Survival gates. It uses only blocks; there are no NPCs, armor stands, item frames or decorative entities. English gate signs and the compass lead to the same network selector. The sky stays at dusk (12500 ticks), with low lanterns, palace chandeliers, lit candles and concealed shroomlights beneath gardens and carpet. All lighting uses blocks, preserving the entity-free lobby.
+
+For an existing Sanctum, `vampyuyu:warm_lights` is a guarded lighting-only upgrade: it changes a block only when the original expected material is still present. Back up and load the footprint before applying it; never rerun `build_once` to update lighting.
 
 A native 100-block world border and invisible perimeter prevent escapes. Falling returns players to spawn. All non-player entity spawning, item pickup, item dropping, mob loot, explosions, griefing and weather changes are blocked, including for OPs. Visitors cannot build or change inventory. On joining the Lobby, inventory, ender chest and XP are cleared and only the selector compass is given. These rules apply only to the Lobby, never Creative or Survival.
 

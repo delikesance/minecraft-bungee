@@ -124,11 +124,54 @@ for x,z in [(-7,-10),(7,-10),(-7,10),(7,10),(-10,-7),(10,-7),(-10,7),(10,7),(-24
 for z in (-10,10):
  for x in (-23,23):
   box(x-2,65,z,x+2,65,z,'dark_oak_stairs[facing='+('north' if z<0 else 'south')+']');box(x-3,65,z,x-3,66,z,'polished_blackstone_bricks');box(x+3,65,z,x+3,66,z,'polished_blackstone_bricks')
+# Warm lighting upgrade: warm materials, low lanterns and concealed floor lights.
+# Record a guarded patch too, so existing worlds can receive lighting without rebuilding.
+lighting=[]
+def glow(x,y,z,material):
+ previous=blocks.get((x,y,z),'air')
+ box(x,y,z,x,y,z,material)
+ lighting.append(f'execute if block {x} {y} {z} minecraft:{previous} run setblock {x} {y} {z} minecraft:{material}')
+# Pools reflect amber light; leaves conceal light without introducing entities.
+for sx in (-1,1):
+ cx=sx*17
+ for z in (-2,2):glow(cx,63,z,'shroomlight')
+ for sz in (-1,1):
+  cx,cz=sx*16,sz*16
+  for dx,dz in [(-3,-3),(-3,3),(3,-3),(3,3)]:
+   glow(cx+dx,65,cz+dz,'shroomlight')
+   glow(cx+dx,66,cz+dz,'flowering_azalea_leaves[persistent=true]')
+  # Hanging lanterns beneath the blossom canopy.
+  for dx in (-3,3):
+   glow(cx+dx,71,cz,'iron_chain[axis=y]')
+   glow(cx+dx,70,cz,'lantern[hanging=true]')
+# Low bollards and concealed carpet lighting keep the courtyard softly legible.
+for z in (-34,-27,-18,-10,10,18,27,34):
+ for x in (-5,5):
+  glow(x,65,z,'chiseled_quartz_block');glow(x,66,z,'lantern')
+for z in (-16,-8,8,16,24,32):
+ for x in (-2,2):
+  glow(x,64,z,'shroomlight');glow(x,65,z,'red_carpet')
+# Golden gate lights and candles on the bench armrests.
+for sx in (-1,1):
+ for z in (-5,5):glow(sx*32,74,z,'lantern')
+for z in (-10,10):
+ for x in (-26,-20,20,26):glow(x,67,z,'red_candle[candles=3,lit=true]')
+# Lower chandeliers bring light down to the palace floor, with a warm amber canopy.
+for cx in (-13,0,13):
+ for y in range(76,81):glow(cx,y,-28,'iron_chain[axis=y]')
+ glow(cx,75,-28,'gold_block')
+ for dx,dz in [(-2,0),(-1,0),(1,0),(2,0),(0,-2),(0,-1),(0,1),(0,2)]:
+  glow(cx+dx,75,-28+dz,'dark_oak_fence')
+ for dx,dz in [(-2,0),(2,0),(0,-2),(0,2)]:glow(cx+dx,74,-28+dz,'lantern[hanging=true]')
+for x in (-18,-9,9,18):
+ glow(x,65,-25,'shroomlight');glow(x,66,-25,'red_carpet')
+lighting += ['gamerule doDaylightCycle false','gamerule doWeatherCycle false','time set 12500','weather clear']
 # Static invisible safety shell, in addition to the visible native world border.
 for side in (-49,49):box(side,58,-49,side,112,49,'barrier');box(-49,58,side,49,112,side,'barrier')
-commands += ['setworldspawn 0 65 12 180 0','worldborder center 0 0','worldborder set 100','gamerule doMobSpawning false','gamerule doMobLoot false','gamerule doEntityDrops false','gamerule mobGriefing false','gamerule doDaylightCycle false','gamerule doWeatherCycle false','gamerule doFireTick false','time set 6000','weather clear','data modify storage vampyuyu:lobby built set value 1b']
+commands += ['setworldspawn 0 65 12 180 0','worldborder center 0 0','worldborder set 100','gamerule doMobSpawning false','gamerule doMobLoot false','gamerule doEntityDrops false','gamerule mobGriefing false','gamerule doDaylightCycle false','gamerule doWeatherCycle false','gamerule doFireTick false','time set 12500','weather clear','data modify storage vampyuyu:lobby built set value 1b']
 func=out/'data/vampyuyu/function';func.mkdir(parents=True,exist_ok=True)
 (func/'build_once.mcfunction').write_text('# Original Vampyuyu Sanctum · reproducible block-only build\n'+'\n'.join(commands)+'\n')
+(func/'warm_lights.mcfunction').write_text('# Guarded lighting upgrade for an existing Sanctum; never rebuilds terrain.\n'+'\n'.join(lighting)+'\n')
 (func/'install.mcfunction').write_text('execute unless data storage vampyuyu:lobby built run function vampyuyu:build_once\n')
 tag=out/'data/minecraft/tags/function';tag.mkdir(parents=True,exist_ok=True);(tag/'load.json').write_text(json.dumps({'values':['vampyuyu:install']},indent=2)+'\n')
 (out/'pack.mcmeta').write_text(json.dumps({'pack':{'description':'Vampyuyu Sanctum · burgundy, ivory & gold lobby','min_format':[88,0],'max_format':[88,0]}},indent=2)+'\n')
