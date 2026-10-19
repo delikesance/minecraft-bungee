@@ -183,5 +183,5 @@ execute if block 18 65 -25 minecraft:polished_blackstone_bricks run setblock 18 
 execute if block 18 66 -25 minecraft:air run setblock 18 66 -25 minecraft:red_carpet
 gamerule doDaylightCycle false
 gamerule doWeatherCycle false
-time set 12500
+time set 13500
 weather clear

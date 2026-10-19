@@ -165,7 +165,7 @@ for cx in (-13,0,13):
  for dx,dz in [(-2,0),(2,0),(0,-2),(0,2)]:glow(cx+dx,74,-28+dz,'lantern[hanging=true]')
 for x in (-18,-9,9,18):
  glow(x,65,-25,'shroomlight');glow(x,66,-25,'red_carpet')
-lighting += ['gamerule doDaylightCycle false','gamerule doWeatherCycle false','time set 12500','weather clear']
+lighting += ['gamerule doDaylightCycle false','gamerule doWeatherCycle false','time set 13500','weather clear']
 # Palace furnishings: guarded, block-only update with an unobstructed central aisle.
 furniture=[]
 def furnish(x,y,z,material):
@@ -284,11 +284,32 @@ for pos in sorted(set(bat_final)|set(blocks)):
 for x in (-3,3):
  for y in (66,67):
   for z in range(-30,-25):assert (x,y,z) not in blocks
+# Five illuminated bat silhouettes in the sky: static blocks, never spawned mobs.
+sky=[]
+def skyblock(x,y,z,material):
+ previous=blocks.get((x,y,z),'air')
+ assert previous=='air',f'Sky decoration overlaps existing architecture at {(x,y,z)}'
+ box(x,y,z,x,y,z,material)
+ sky.append(f'execute if block {x} {y} {z} minecraft:air run setblock {x} {y} {z} minecraft:{material}')
+sky_pattern=['#...#.#...#','##..###..##','###########','.#########.','..##.#.##..','.....#.....']
+for cx,top,cz,turn in [(-21,91,5,False),(21,94,8,True),(0,90,29,False),(-29,97,28,True),(28,98,-6,False)]:
+ for row,line in enumerate(sky_pattern):
+  for col,pixel in enumerate(line):
+   if pixel!='#':continue
+   dx=col-5;x,z=(cx,cz+dx) if turn else (cx+dx,cz)
+   # A warm luminous core illuminates the wine-colored membranes and dark wing edge.
+   material='shroomlight' if dx==0 and row in (1,2) else ('red_nether_bricks' if row in (2,3) and 1<=abs(dx)<=3 else 'polished_blackstone_bricks')
+   skyblock(x,top-row,z,material)
+ # A second underside light keeps each silhouette visible from the courtyard below.
+ x,z=(cx+1,cz) if turn else (cx,cz+1)
+ skyblock(x,top-2,z,'shroomlight')
+sky += ['gamerule doDaylightCycle false','gamerule doWeatherCycle false','time set 13500','weather clear']
 # Static invisible safety shell, in addition to the visible native world border.
 for side in (-49,49):box(side,58,-49,side,112,49,'barrier');box(-49,58,side,49,112,side,'barrier')
-commands += ['setworldspawn 0 65 12 180 0','worldborder center 0 0','worldborder set 100','gamerule doMobSpawning false','gamerule doMobLoot false','gamerule doEntityDrops false','gamerule mobGriefing false','gamerule doDaylightCycle false','gamerule doWeatherCycle false','gamerule doFireTick false','time set 12500','weather clear','data modify storage vampyuyu:lobby built set value 1b']
+commands += ['setworldspawn 0 65 12 180 0','worldborder center 0 0','worldborder set 100','gamerule doMobSpawning false','gamerule doMobLoot false','gamerule doEntityDrops false','gamerule mobGriefing false','gamerule doDaylightCycle false','gamerule doWeatherCycle false','gamerule doFireTick false','time set 13500','weather clear','data modify storage vampyuyu:lobby built set value 1b']
 func=out/'data/vampyuyu/function';func.mkdir(parents=True,exist_ok=True)
 (func/'build_once.mcfunction').write_text('# Original Vampyuyu Sanctum · reproducible block-only build\n'+'\n'.join(commands)+'\n')
+(func/'night_sky.mcfunction').write_text('# Guarded illuminated sky bats and fixed early night; block-only.\n'+'\n'.join(sky)+'\n')
 (func/'cat_statue.mcfunction').write_text('# Guarded bat-to-cat replacement; restores former wing positions, no entities.\n'+'\n'.join(cat_patch)+'\n')
 (func/'furniture.mcfunction').write_text('# Guarded block-only palace furnishing upgrade.\n'+'\n'.join(furniture)+'\n')
 (func/'warm_lights.mcfunction').write_text('# Guarded lighting upgrade for an existing Sanctum; never rebuilds terrain.\n'+'\n'.join(lighting)+'\n')
