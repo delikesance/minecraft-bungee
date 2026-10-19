@@ -77,3 +77,7 @@ Races require at least two non-overlapping checkpoint spheres inside the play ar
 The protected Lobby now has explicit operator maintenance mode: `/lobbybuild on` and `/lobbybuild off`, also available under **Server settings → Lobby → Build & inventory access**. It requires OP or `vampyuyu.lobby.build`; cosmetic roles do not grant it. Build mode enables block editing and inventory movement/disposal, then restores the previous game mode when disabled. It is temporary and clears on disconnect/restart. Join an arena only after disabling maintenance mode.
 
 Explosions, fire damage to blocks, entity griefing and natural hostile spawns are prevented in the Lobby. Compose uses Peaceful difficulty and disables duplicate vanilla spawn protection, since the plugin explicitly protects all visitors. These changes apply to the Lobby only. The existing world is preserved.
+
+Arena corners can be entered in either order: the panel and server normalize all three axes on save, retaining decimal coordinates. Spawn fields always display X / Y / Z, followed by yaw and pitch. Width/height limits, world-height checks, spawn containment and overlap checks still apply after normalization.
+
+The local Creative `werewolf` arena is configured for X 1241–1315, Z -982–-887 and full world height (-64–320). Its checked arrival is X 1286.5 / Y 91 / Z -944.5, above stone-brick stairs with clear headroom. These coordinates belong to the imported Creative map; new deployments must review their own map.

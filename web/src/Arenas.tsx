@@ -71,6 +71,20 @@ const titles: Record<string, string> = {
   FREEPLAY: "Free play",
   RESTORING: "Restoring players",
 };
+function normalizeCorners(config: Config): Config {
+  const b = config.bounds;
+  return {
+    ...config,
+    bounds: {
+      minX: Math.min(b.minX, b.maxX),
+      minY: Math.min(b.minY, b.maxY),
+      minZ: Math.min(b.minZ, b.maxZ),
+      maxX: Math.max(b.minX, b.maxX),
+      maxY: Math.max(b.minY, b.maxY),
+      maxZ: Math.max(b.minZ, b.maxZ),
+    },
+  };
+}
 function fresh(world: World): Config {
   const x = Math.floor(world.spawn.x),
     z = Math.floor(world.spawn.z);
@@ -231,6 +245,8 @@ export function Arenas({
   async function save(e: FormEvent) {
     e.preventDefault();
     if (!draft) return;
+    const normalized = normalizeCorners(draft);
+    setDraft(normalized);
     if (!editing && state?.arenas.some((a) => a.config.id === draft.id)) {
       setError(
         "This ID already exists. Edit the existing arena or choose a different ID.",
@@ -259,7 +275,7 @@ export function Arenas({
       await api(`/servers/${server}/game/action`, "POST", csrf, {
         action: "arena-save",
         config: {
-          ...draft,
+          ...normalized,
           allowedBreakBlocks: materials(breaks),
           allowedPlaceBlocks: materials(places),
         },
@@ -728,11 +744,14 @@ export function Arenas({
                 </div>
                 <h3>Exact play area</h3>
                 <p className="console-note">
-                  Set both corners around your build. The spawn must be inside,
-                  with safe ground and enough headroom. No blocks are generated.
+                  Enter either corner first — coordinates are sorted
+                  automatically when saved. The spawn must be inside, with safe
+                  ground and enough headroom. No blocks are generated.
                 </p>
                 <div className="arena-coordinate-grid">
-                  {Object.keys(draft.bounds).map((key) => (
+                  {(
+                    ["minX", "minY", "minZ", "maxX", "maxY", "maxZ"] as const
+                  ).map((key) => (
                     <label key={key}>
                       {key.replace(/^(min|max)/, "$1 ")}
                       <input
@@ -755,7 +774,7 @@ export function Arenas({
                 </div>
                 <h3>Arrival position</h3>
                 <div className="arena-coordinate-grid">
-                  {Object.keys(draft.spawn).map((key) => (
+                  {(["x", "y", "z", "yaw", "pitch"] as const).map((key) => (
                     <label key={key}>
                       Spawn {key}
                       <input

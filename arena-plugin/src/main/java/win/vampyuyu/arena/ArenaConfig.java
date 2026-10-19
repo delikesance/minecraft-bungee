@@ -27,6 +27,14 @@ public record ArenaConfig(
   public record Bounds(
       double minX, double minY, double minZ, double maxX, double maxY, double maxZ) {
     public Bounds {
+      // Either corner may be entered first; retain exact coordinates.
+      double x = minX, y = minY, z = minZ;
+      minX = Math.min(x, maxX);
+      minY = Math.min(y, maxY);
+      minZ = Math.min(z, maxZ);
+      maxX = Math.max(x, maxX);
+      maxY = Math.max(y, maxY);
+      maxZ = Math.max(z, maxZ);
       for (double n : new double[] {minX, minY, minZ, maxX, maxY, maxZ})
         if (!Double.isFinite(n) || Math.abs(n) > 29_999_000)
           throw new IllegalArgumentException("Invalid arena coordinate");
@@ -64,11 +72,13 @@ public record ArenaConfig(
   public ArenaConfig {
     werewolf = werewolf == null ? GameRules.Werewolf.defaults() : werewolf;
     freeplay = freeplay == null ? GameRules.Freeplay.defaults() : freeplay;
-    if ("werewolf".equals(preset) && !werewolf.roles().isEmpty()
+    if ("werewolf".equals(preset)
+        && !werewolf.roles().isEmpty()
         && werewolf.roles().getOrDefault("WEREWOLF", 0) * 2 >= minPlayers)
       throw new IllegalArgumentException(
           "Wolves must be in the minority at the minimum player count");
-    if ("werewolf".equals(preset) && !werewolf.roles().isEmpty()
+    if ("werewolf".equals(preset)
+        && !werewolf.roles().isEmpty()
         && werewolf.roles().values().stream().mapToInt(Integer::intValue).sum() > minPlayers)
       throw new IllegalArgumentException("Minimum players must cover the configured role counts");
     if (preset != null && preset.equals("freeplay")) {

@@ -16,11 +16,19 @@ public class ArenaConfigTest {
   }
 
   @Test
-  public void rejectNaNAndReversedCorners() {
+  public void rejectNonFiniteAndUndersizedCorners() {
     assertThrows(
         IllegalArgumentException.class, () -> new ArenaConfig.Bounds(0, 0, 0, Double.NaN, 20, 20));
     assertThrows(
-        IllegalArgumentException.class, () -> new ArenaConfig.Bounds(20, 0, 0, 10, 20, 20));
+        IllegalArgumentException.class, () -> new ArenaConfig.Bounds(20, 0, 0, 18, 20, 20));
+  }
+
+  @Test
+  public void normalizeEitherCornerWithoutRoundingNegativeCoordinates() {
+    var b = new ArenaConfig.Bounds(1315, 320, -887, 1241, -64, -982);
+    assertEquals(new ArenaConfig.Bounds(1241, -64, -982, 1315, 320, -887), b);
+    assertTrue(b.contains(1286.5, 91, -944.5));
+    assertEquals(-20.75, new ArenaConfig.Bounds(10.5, 20, 5.25, -20.75, 0, -30.5).minX(), 0);
   }
 
   @Test
