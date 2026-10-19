@@ -212,6 +212,35 @@ public final class WerewolfGame implements GamePreset {
     return "Vote recorded. You may change it until the phase ends.";
   }
 
+  /** Practice participants act through the same rules as humans, without revealing secrets. */
+  public synchronized void simulateTurn(Set<UUID> bots, Random random) {
+    Phase initial = phase;
+    List<UUID> actors = new ArrayList<>(bots);
+    Collections.shuffle(actors, random);
+    for (UUID bot : actors) {
+      if (phase != initial) return;
+      if (!alive.contains(bot)
+          && !(phase == Phase.HUNTER_SHOT && Objects.equals(hunters.peekFirst(), bot))) continue;
+      if (phase == Phase.WITCH) {
+        if (abilities(bot).containsKey("heal") && random.nextBoolean()) use(bot, "heal");
+        if (random.nextInt(4) != 0) continue;
+      }
+      int choices = phase == Phase.CUPID ? 2 : 1;
+      for (int choice = 0; choice < choices && phase == initial; choice++) {
+        List<UUID> targets = new ArrayList<>(alive);
+        Collections.shuffle(targets, random);
+        for (UUID target : targets) {
+          try {
+            select(bot, target);
+            break;
+          } catch (IllegalArgumentException unavailable) {
+            /* Try the next legal target. */
+          }
+        }
+      }
+    }
+  }
+
   public synchronized void remove(UUID p) {
     eliminate(p, false);
     hunters.remove(p);

@@ -6,6 +6,7 @@ import java.util.concurrent.*;
 public final class ArenaSession {
   public final ArenaConfig config;
   public final Map<UUID, String> players = new ConcurrentHashMap<>();
+  public final Set<UUID> bots = ConcurrentHashMap.newKeySet();
   public volatile GamePreset game;
   public volatile long startedAt, phaseEndsAt;
   public volatile String observedPhase = "WAITING";

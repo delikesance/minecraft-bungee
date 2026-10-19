@@ -81,3 +81,13 @@ Explosions, fire damage to blocks, entity griefing and natural hostile spawns ar
 Arena corners can be entered in either order: the panel and server normalize all three axes on save, retaining decimal coordinates. Spawn fields always display X / Y / Z, followed by yaw and pitch. Width/height limits, world-height checks, spawn containment and overlap checks still apply after normalization.
 
 The local Creative `werewolf` arena is configured for X 1241–1315, Z -982–-887 and full world height (-64–320). Its checked arrival is X 1286.5 / Y 91 / Z -944.5, above stone-brick stairs with clear headroom. These coordinates belong to the imported Creative map; new deployments must review their own map.
+
+### Solo practice
+
+In the panel, select a waiting Werewolf arena and use **Solo practice → Start practice**. Choose a connected player if nobody has joined yet (a single eligible player is selected automatically), then choose the number of virtual participants. The default is seven, bounded by the configured minimum/maximum total player count. The real player joins through the normal snapshot/teleport path before the game starts. No real player is moved until the administrator confirms.
+
+Virtual participants are labeled `[Bot] Guest N` in the panel and compass. They receive ordinary randomized secret roles and perform legal votes and role actions at phase deadlines. They choose random legal targets; they do not simulate human conversation or strategy. Practice phases last at most 15 seconds; normal game timings remain unchanged. Bots never connect to Minecraft, appear in TAB, spawn NPC entities, create player accounts or write inventories/snapshots. Their presence is in-memory only.
+
+Stop/winner restoration clears all bots. The last real player leaving/disconnecting also clears the virtual cast and returns the arena to waiting. Real snapshots retain the existing restore-on-stop/reconnect/crash behavior. Free play and real-only Werewolf starts continue to use their normal rules. Authenticated `arena-practice-start` accepts `arenaId`, integer `botCount` (1–44, also constrained by the arena limits), and optional connected player `uuid`. Invalid limits and empty real-player games are rejected.
+
+`scripts/smoke-practice.cjs` checks authenticated start, invalid counts, virtual player flags, phase progression, absence of bot saves, stop cleanup and last-human disconnect/reconnect restoration on an empty disposable Survival server.

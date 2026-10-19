@@ -319,11 +319,72 @@ public final class ArenaManager {
     if (s != null) {
       s.players.remove(id);
       if (s.game != null) s.game.remove(id);
+      if (!s.bots.isEmpty() && s.players.keySet().stream().allMatch(s.bots::contains)) {
+        clearBots(s);
+        s.game = null;
+        s.stopping = false;
+      }
       if (s.stopping && s.players.isEmpty()) {
         s.stopping = false;
         s.game = null;
       }
     }
+  }
+
+  public CompletableFuture<Void> startPractice(String id, int count, Player joining) {
+    ArenaSession s;
+    boolean needsJoin;
+    synchronized (this) {
+      s = require(id);
+      needsJoin = joining != null && !s.players.containsKey(joining.getUniqueId());
+      int total = s.players.size() + count + (needsJoin ? 1 : 0);
+      if (!s.config.preset().equals("werewolf")
+          || s.game != null
+          || s.stopping
+          || !s.bots.isEmpty())
+        throw new IllegalArgumentException("Choose a waiting Werewolf arena for practice");
+      if (count < 1 || count > 44 || total < s.config.minPlayers() || total > s.config.maxPlayers())
+        throw new IllegalArgumentException(
+            "Real and practice players together must fit the arena player limits");
+      if (s.players.isEmpty() && joining == null)
+        throw new IllegalArgumentException("Choose a connected player or join the arena first");
+    }
+    return (needsJoin ? joinArena(joining, id) : CompletableFuture.<Void>completedFuture(null))
+        .thenCompose(
+            ignored ->
+                plugin.io(
+                    () -> {
+                      synchronized (this) {
+                        if (require(id) != s
+                            || s.game != null
+                            || s.stopping
+                            || s.players.isEmpty()
+                            || s.players.size() + count > s.config.maxPlayers())
+                          throw new IllegalArgumentException(
+                              "Arena changed; refresh before starting practice");
+                        try {
+                          for (int i = 1; i <= count; i++) {
+                            UUID bot = UUID.randomUUID();
+                            s.bots.add(bot);
+                            s.players.put(bot, "[Bot] Guest " + i);
+                          }
+                          start(id);
+                        } catch (RuntimeException error) {
+                          clearBots(s);
+                          throw error;
+                        }
+                      }
+                      return null;
+                    }));
+  }
+
+  private void clearBots(ArenaSession s) {
+    for (UUID bot : s.bots) s.players.remove(bot);
+    s.bots.clear();
+  }
+
+  private long phaseMillis(ArenaSession s) {
+    return Math.min(s.game.seconds(), s.bots.isEmpty() ? s.config.durationSeconds() : 15) * 1000L;
   }
 
   public synchronized void start(String id) {
@@ -335,7 +396,7 @@ public final class ArenaManager {
       throw new IllegalArgumentException("Wait for enough fully joined players before starting");
     s.game = presets.get(s.config.preset()).create(s.config, Set.copyOf(s.players.keySet()));
     s.startedAt = System.currentTimeMillis();
-    s.phaseEndsAt = s.startedAt + Math.min(s.game.seconds(), s.config.durationSeconds()) * 1000L;
+    s.phaseEndsAt = s.startedAt + phaseMillis(s);
     s.observedPhase = s.game.phase();
     update(s, "The game has begun. Open your compass to see your secret role.");
   }
@@ -346,6 +407,7 @@ public final class ArenaManager {
     synchronized (this) {
       s = require(id);
       s.stopping = true;
+      clearBots(s);
       for (UUID uuid : s.players.keySet()) {
         Player p = Bukkit.getPlayer(uuid);
         if (p != null) players.add(p);
@@ -367,7 +429,7 @@ public final class ArenaManager {
       if (now - s.startedAt >= s.config.durationSeconds() * 1000L) s.game.finish();
       if (!s.game.phase().equals(s.observedPhase)) {
         s.observedPhase = s.game.phase();
-        s.phaseEndsAt = now + s.game.seconds() * 1000L;
+        s.phaseEndsAt = now + phaseMillis(s);
         update(s, "Phase: " + s.game.phase() + ". Open your compass for the current actions.");
       }
       if (now - s.startedAt >= s.config.durationSeconds() * 1000L || !s.game.winner().isEmpty()) {
@@ -380,8 +442,11 @@ public final class ArenaManager {
         continue;
       }
       if (now >= s.phaseEndsAt) {
-        s.game.advance();
-        s.phaseEndsAt = now + s.game.seconds() * 1000L;
+        String before = s.game.phase();
+        if (s.game instanceof WerewolfGame werewolf && !s.bots.isEmpty())
+          werewolf.simulateTurn(Set.copyOf(s.bots), new Random());
+        if (s.game.phase().equals(before)) s.game.advance();
+        s.phaseEndsAt = now + phaseMillis(s);
         s.observedPhase = s.game.phase();
         update(s, "Phase: " + s.game.phase() + ". Open your compass for the current actions.");
       }
@@ -446,6 +511,7 @@ public final class ArenaManager {
       Map<String, Object> row = new LinkedHashMap<>();
       row.put("config", s.config);
       row.put("phase", s.phase());
+      row.put("practice", !s.bots.isEmpty());
       row.put("startedAt", s.startedAt);
       row.put("phaseEndsAt", s.phaseEndsAt);
       row.put(
@@ -460,6 +526,8 @@ public final class ArenaManager {
                           e.getValue(),
                           "alive",
                           s.game == null || s.game.alive().contains(e.getKey()),
+                          "bot",
+                          s.bots.contains(e.getKey()),
                           "score",
                           s.game == null ? 0 : s.game.scores().getOrDefault(e.getKey(), 0)))
               .toList());

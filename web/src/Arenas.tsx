@@ -43,7 +43,14 @@ type Arena = {
   phase: string;
   startedAt: number;
   phaseEndsAt: number;
-  players: { uuid: string; name: string; alive: boolean; score?: number }[];
+  practice?: boolean;
+  players: {
+    uuid: string;
+    name: string;
+    alive: boolean;
+    bot?: boolean;
+    score?: number;
+  }[];
 };
 type World = {
   name: string;
@@ -126,6 +133,8 @@ export function Arenas({
   onError: (error: unknown) => void;
 }) {
   const confirm = useConfirm();
+  const [practiceBots, setPracticeBots] = useState(7);
+  const [practicePlayer, setPracticePlayer] = useState("");
   const [server, setServer] = useState("creative"),
     [state, setState] = useState<State | null>(null),
     [selected, setSelected] = useState(""),
@@ -191,6 +200,7 @@ export function Arenas({
     setSelected("");
     setNotice("");
     setTarget("");
+    setPracticePlayer("");
     void load();
     const timer = setInterval(load, 3000);
     return () => {
@@ -199,6 +209,26 @@ export function Arenas({
     };
   }, [server]);
   const current = state?.arenas.find((a) => a.config.id === selected);
+  const practiceHumans = current?.players.filter((p) => !p.bot).length || 0;
+  const practiceCandidates =
+    state?.onlinePlayers.filter(
+      (p) =>
+        !state.arenas.some((a) =>
+          a.players.some((member) => member.uuid === p.uuid),
+        ),
+    ) || [];
+  const practiceTarget =
+    practicePlayer ||
+    (practiceCandidates.length === 1 ? practiceCandidates[0].uuid : "");
+  const practiceCount = current
+    ? Math.min(
+        current.config.maxPlayers - Math.max(1, practiceHumans),
+        Math.max(
+          current.config.minPlayers - Math.max(1, practiceHumans),
+          practiceBots,
+        ),
+      )
+    : practiceBots;
   async function action(
     action: string,
     extra: Record<string, unknown> = {},
@@ -535,6 +565,93 @@ export function Arenas({
                       / {current.config.spawn.z}
                     </small>
                   </div>
+                  {current.config.preset === "werewolf" &&
+                    current.phase === "WAITING" && (
+                      <section
+                        className="arena-invite"
+                        aria-label="Solo practice"
+                      >
+                        <span className="eyebrow">SOLO PRACTICE</span>
+                        <h3>Try the village with a virtual cast.</h3>
+                        <p>
+                          Practice players receive secret roles and act
+                          automatically at the end of each phase. Phases last at
+                          most 15 seconds. They are virtual participants, with
+                          no Minecraft accounts, NPCs or inventory.
+                        </p>
+                        {practiceHumans === 0 && (
+                          <label>
+                            Player to join
+                            <select
+                              value={practiceTarget}
+                              onChange={(e) =>
+                                setPracticePlayer(e.target.value)
+                              }
+                              disabled={busy}
+                            >
+                              <option value="">
+                                Choose a connected player…
+                              </option>
+                              {practiceCandidates.map((p) => (
+                                <option key={p.uuid} value={p.uuid}>
+                                  {p.name}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                        )}
+                        <label>
+                          Practice players
+                          <input
+                            type="number"
+                            min={Math.max(
+                              1,
+                              current.config.minPlayers -
+                                Math.max(1, practiceHumans),
+                            )}
+                            max={
+                              current.config.maxPlayers -
+                              Math.max(1, practiceHumans)
+                            }
+                            value={practiceCount}
+                            disabled={busy}
+                            onChange={(e) =>
+                              setPracticeBots(
+                                Math.max(1, Number(e.target.value)),
+                              )
+                            }
+                          />
+                        </label>
+                        <button
+                          className="primary"
+                          disabled={
+                            busy ||
+                            practiceCount < 1 ||
+                            (practiceHumans === 0 && !practiceTarget)
+                          }
+                          onClick={() =>
+                            action(
+                              "arena-practice-start",
+                              {
+                                botCount: practiceCount,
+                                ...(practiceHumans === 0
+                                  ? { uuid: practiceTarget }
+                                  : {}),
+                              },
+                              `Start practice with ${Math.max(1, practiceHumans)} real player(s) and ${practiceCount} virtual players? Real inventories and positions will be saved and restored normally.`,
+                            )
+                          }
+                        >
+                          Start practice →
+                        </button>
+                      </section>
+                    )}
+                  {current.practice && (
+                    <p className="console-note">
+                      Practice game · virtual players act automatically. Stop
+                      &amp; restore removes the entire virtual cast.
+                    </p>
+                  )}
                   <h3>
                     Participants <small>· {current.players.length}</small>
                   </h3>
@@ -550,7 +667,10 @@ export function Arenas({
                     <div className="arena-participants">
                       {current.players.map((p) => (
                         <div key={p.uuid}>
-                          <strong>{p.name}</strong>
+                          <strong>
+                            {p.name}
+                            {p.bot ? " · Practice" : ""}
+                          </strong>
                           {current.config.preset === "freeplay" && (
                             <span>{p.score || 0} pts</span>
                           )}
@@ -558,7 +678,7 @@ export function Arenas({
                             {p.alive ? "In play" : "Eliminated"}
                           </span>
                           <button
-                            disabled={busy}
+                            disabled={busy || p.bot}
                             onClick={() =>
                               action(
                                 "arena-leave",

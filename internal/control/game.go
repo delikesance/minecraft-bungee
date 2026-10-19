@@ -13,7 +13,7 @@ import (
 )
 
 var gameUUID = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
-var gameActions = map[string]bool{"lobby-build": true, "arena-save": true, "arena-delete": true, "arena-start": true, "arena-stop": true, "arena-announce": true, "arena-reload": true, "arena-join": true, "arena-leave": true, "arena-ban": true, "arena-kick": true, "arena-unban": true, "gamemode": true, "restore-inventory": true, "heal": true, "feed": true, "clear-effects": true, "teleport-spawn": true, "set-spawn": true, "kick": true, "ban": true, "pardon": true, "pardon-name": true, "whitelist-add": true, "whitelist-remove": true, "broadcast": true, "save": true, "whitelist": true, "difficulty": true, "time": true, "weather": true, "pvp": true, "gamerule": true}
+var gameActions = map[string]bool{"lobby-build": true, "arena-save": true, "arena-delete": true, "arena-start": true, "arena-practice-start": true, "arena-stop": true, "arena-announce": true, "arena-reload": true, "arena-join": true, "arena-leave": true, "arena-ban": true, "arena-kick": true, "arena-unban": true, "gamemode": true, "restore-inventory": true, "heal": true, "feed": true, "clear-effects": true, "teleport-spawn": true, "set-spawn": true, "kick": true, "ban": true, "pardon": true, "pardon-name": true, "whitelist-add": true, "whitelist-remove": true, "broadcast": true, "save": true, "whitelist": true, "difficulty": true, "time": true, "weather": true, "pvp": true, "gamerule": true}
 
 func ValidGameAction(action string) bool { return gameActions[action] }
 func (s *Server) gameProxy(w http.ResponseWriter, r *http.Request, id, method, path string, body io.Reader) {

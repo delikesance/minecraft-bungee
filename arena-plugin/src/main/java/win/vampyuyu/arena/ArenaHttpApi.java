@@ -106,6 +106,20 @@ final class ArenaHttpApi implements AutoCloseable {
                 plugin.arenas.reload();
                 return null;
               });
+      case "arena-practice-start" -> {
+        if (!input.has("botCount")
+            || !input.get("botCount").isJsonPrimitive()
+            || !input.get("botCount").getAsJsonPrimitive().isNumber())
+          throw new IllegalArgumentException("Practice player count required");
+        double count = input.get("botCount").getAsDouble();
+        if (!Double.isFinite(count) || count != Math.floor(count) || count < 1 || count > 44)
+          throw new IllegalArgumentException("Choose 1–44 practice players");
+        Player p =
+            input.has("uuid") ? Bukkit.getPlayer(UUID.fromString(text(input, "uuid", 36))) : null;
+        if (input.has("uuid") && p == null)
+          throw new IllegalArgumentException("Player must be connected to this server");
+        yield plugin.arenas.startPractice(id, (int) count, p);
+      }
       case "arena-start" ->
           plugin.io(
               () -> {

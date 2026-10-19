@@ -291,7 +291,9 @@ References: [Velocity forwarding](https://docs.papermc.io/velocity/player-inform
 
 ## Arenas and mini-games
 
-Open [Arenas](http://localhost:5173/#arenas) to configure play zones in existing worlds, manage Werewolf/free-play sessions, follow participants, stop and restore players, send clickable network invitations, and issue network kick/ban/unban actions. The engine stores persistent player snapshots before joining and protects inventory/gamemode edits while a snapshot is outstanding. No arena or world is automatically created on installation.
+Open [Arenas](http://localhost:5173/#arenas) to configure play zones in existing worlds, manage Werewolf/free-play sessions, follow participants, stop and restore players, send clickable network invitations, and issue network kick/ban/unban actions. For a solo Werewolf test, use **Solo practice → Start practice**: select your connected Minecraft player and add a virtual cast (seven by default). Practice bots vote and act automatically, phases are capped at 15 seconds, and the cast is removed on stop or the last real player leaving. Bots are virtual menu participants, not NPCs or Minecraft accounts.
+
+The engine stores persistent player snapshots before joining and protects inventory/gamemode edits while a snapshot is outstanding. No arena or world is automatically created on installation.
 
 The new private Redis service requires `arena_redis_password`; regenerate missing secrets with the existing `network secrets` command before updating an older stack. Include Redis data and `plugins/NexusArenaEngine` in stopped-server backups. Empty-server pausing is disabled so management operations and timers keep responding.
 
