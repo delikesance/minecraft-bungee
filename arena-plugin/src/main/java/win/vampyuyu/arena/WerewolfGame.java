@@ -18,6 +18,8 @@ public final class WerewolfGame implements GamePreset {
     CUPID,
     DISCUSSION,
     DAY_VOTE,
+    GUARD,
+    SEER,
     NIGHT,
     WITCH,
     HUNTER_SHOT,
@@ -107,7 +109,7 @@ public final class WerewolfGame implements GamePreset {
       case CUPID -> settings.cupidSeconds();
       case DISCUSSION -> discussion;
       case DAY_VOTE -> vote;
-      case NIGHT -> night;
+      case GUARD, SEER, NIGHT -> night;
       case WITCH -> settings.witchSeconds();
       case HUNTER_SHOT -> settings.hunterSeconds();
       case FINISHED -> 0;
@@ -185,7 +187,7 @@ public final class WerewolfGame implements GamePreset {
       phase = Phase.DISCUSSION;
       return "The lovers are bound. Only they know their bond.";
     }
-    if (phase == Phase.NIGHT && role == Role.GUARD) {
+    if (phase == Phase.GUARD && role == Role.GUARD) {
       if (Objects.equals(lastGuard.get(voter), target))
         throw new IllegalArgumentException(
             "You cannot protect the same player on consecutive nights");
@@ -199,7 +201,7 @@ public final class WerewolfGame implements GamePreset {
       return "Poison potion used. Your target will die at dawn.";
     }
     if (voter.equals(target)) throw new IllegalArgumentException("Select another living player");
-    if (phase == Phase.NIGHT && role == Role.SEER) {
+    if (phase == Phase.SEER && role == Role.SEER) {
       if (!visions.add(voter))
         throw new IllegalArgumentException("You already used your vision tonight");
       return "Your vision: " + target + " is " + roles.get(target) + ".";
@@ -209,6 +211,9 @@ public final class WerewolfGame implements GamePreset {
     if (phase == Phase.NIGHT && roles.get(target) == Role.WEREWOLF)
       throw new IllegalArgumentException("Wolves cannot target another wolf");
     ballots.put(voter, target);
+    if (phase == Phase.NIGHT
+        && alive.stream().filter(p -> roles.get(p) == Role.WEREWOLF).allMatch(ballots::containsKey))
+      advance();
     return "Vote recorded. You may change it until the phase ends.";
   }
 
@@ -250,6 +255,23 @@ public final class WerewolfGame implements GamePreset {
     poisons.remove(p);
     if (phase == Phase.HUNTER_SHOT) resumeAfterHunters();
     else checkWinner();
+    skipUnavailable();
+    if (phase == Phase.NIGHT
+        && alive.stream()
+            .filter(id -> roles.get(id) == Role.WEREWOLF)
+            .allMatch(ballots::containsKey)) advance();
+  }
+
+  private void skipUnavailable() {
+    if (phase == Phase.GUARD && !hasLiving(Role.GUARD))
+      phase = hasLiving(Role.SEER) ? Phase.SEER : Phase.NIGHT;
+    if (phase == Phase.SEER && !hasLiving(Role.SEER)) phase = Phase.NIGHT;
+    if (phase == Phase.WITCH
+        && alive.stream()
+            .noneMatch(
+                p ->
+                    roles.get(p) == Role.WITCH
+                        && (!healUsed.contains(p) || !poisonUsed.contains(p)))) nightDeaths();
   }
 
   private UUID majority() {
@@ -295,6 +317,7 @@ public final class WerewolfGame implements GamePreset {
     if (hunters.isEmpty()) {
       phase = resume;
       checkWinner();
+      skipUnavailable();
     }
   }
 
@@ -309,8 +332,10 @@ public final class WerewolfGame implements GamePreset {
         eliminate(majority(), true);
         ballots.clear();
         visions.clear();
-        continueWith(Phase.NIGHT);
+        continueWith(firstNightPhase());
       }
+      case GUARD -> phase = hasLiving(Role.SEER) ? Phase.SEER : Phase.NIGHT;
+      case SEER -> phase = Phase.NIGHT;
       case NIGHT -> {
         nightVictim = majority();
         ballots.clear();
@@ -330,6 +355,59 @@ public final class WerewolfGame implements GamePreset {
         resumeAfterHunters();
       }
     }
+  }
+
+  private boolean hasLiving(Role role) {
+    return alive.stream().anyMatch(p -> roles.get(p) == role);
+  }
+
+  private Phase firstNightPhase() {
+    return hasLiving(Role.GUARD) ? Phase.GUARD : hasLiving(Role.SEER) ? Phase.SEER : Phase.NIGHT;
+  }
+
+  /** Participants entitled to private phase instructions; the pending hunter may be dead. */
+  public synchronized Set<UUID> actors() {
+    if (phase == Phase.HUNTER_SHOT) {
+      UUID hunter = hunters.peekFirst();
+      return hunter == null ? Set.of() : Set.of(hunter);
+    }
+    if (phase == Phase.DISCUSSION || phase == Phase.DAY_VOTE) return Set.copyOf(alive);
+    Role active =
+        switch (phase) {
+          case CUPID -> Role.CUPID;
+          case GUARD -> Role.GUARD;
+          case SEER -> Role.SEER;
+          case NIGHT -> Role.WEREWOLF;
+          case WITCH -> Role.WITCH;
+          default -> null;
+        };
+    Set<UUID> result = new HashSet<>();
+    for (UUID p : alive) if (roles.get(p) == active) result.add(p);
+    return Set.copyOf(result);
+  }
+
+  public synchronized boolean sleeping(UUID p) {
+    if (!alive.contains(p)) return false;
+    return switch (phase) {
+      case CUPID -> roles.get(p) != Role.CUPID;
+      case GUARD -> roles.get(p) != Role.GUARD;
+      case SEER -> roles.get(p) != Role.SEER;
+      case NIGHT -> roles.get(p) != Role.WEREWOLF;
+      case WITCH -> roles.get(p) != Role.WITCH;
+      case HUNTER_SHOT -> !Objects.equals(hunters.peekFirst(), p);
+      default -> false;
+    };
+  }
+
+  public synchronized Set<UUID> winners() {
+    Set<UUID> result = new HashSet<>();
+    for (UUID p : roles.keySet())
+      if (winner.equals("LOVERS")
+          ? alive.contains(p) && lovers.containsKey(p)
+          : winner.equals("VILLAGE")
+              ? roles.get(p) != Role.WEREWOLF
+              : winner.equals("WEREWOLVES") && roles.get(p) == Role.WEREWOLF) result.add(p);
+    return Set.copyOf(result);
   }
 
   private void checkWinner() {

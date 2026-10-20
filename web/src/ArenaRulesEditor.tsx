@@ -5,6 +5,7 @@ export type WerewolfRules = {
   cupidSeconds: number;
   witchSeconds: number;
   hunterSeconds: number;
+  ambienceEnabled?: boolean;
 };
 export type FreeplayRules = {
   objective: string;
@@ -24,6 +25,7 @@ export const defaultWerewolf: WerewolfRules = {
   cupidSeconds: 15,
   witchSeconds: 15,
   hunterSeconds: 15,
+  ambienceEnabled: true,
 };
 export const defaultFreeplay: FreeplayRules = {
   objective: "SANDBOX",

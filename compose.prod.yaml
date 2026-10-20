@@ -62,6 +62,7 @@ services:
     user: "${PUID:-1000}:${PGID:-1000}"
     environment:
       PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:?Set PUBLIC_ORIGIN}
+      NETWORK_CURRENCY_NAME: ${NETWORK_CURRENCY_NAME:-Shards}
       CONTROLLER_URL: http://controller:8081
       DB_PATH: /state/panel.db
     volumes:

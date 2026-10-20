@@ -88,6 +88,12 @@ public final class NetworkDisplay extends JavaPlugin implements Listener {
             return;
         }
         new WorldSelector(this);
+        try { new CommunityFeatures(this, server, bridge, token); }
+        catch (Exception e) {
+            getLogger().log(java.util.logging.Level.SEVERE, "Community features failed to load", e);
+            getServer().getPluginManager().disablePlugin(this);
+            return;
+        }
         access = new RoleAccess(this);
         try { management = new ManagementApi(this, token); }
         catch (IOException exception) {

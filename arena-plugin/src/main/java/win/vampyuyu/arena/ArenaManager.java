@@ -48,7 +48,9 @@ public final class ArenaManager {
   }
 
   public synchronized void reload() throws Exception {
-    if (!members.isEmpty() || !busy.isEmpty())
+    if (!members.isEmpty()
+        || !busy.isEmpty()
+        || sessions.values().stream().anyMatch(s -> s.finishing))
       throw new IllegalArgumentException("Stop occupied arenas before reloading presets");
     Map<String, ArenaSession> next = new LinkedHashMap<>();
     try (var files = Files.list(configs)) {
@@ -72,6 +74,8 @@ public final class ArenaManager {
       throw new IllegalArgumentException("Unregistered game preset");
     World w = Bukkit.getWorld(c.worldName());
     if (w == null) throw new IllegalArgumentException("Choose a loaded world");
+    if (!c.preset().equals("werewolf") && c.village().enabled())
+      throw new IllegalArgumentException("Village mode requires Werewolf");
     if (c.preset().equals("freeplay") && c.freeplay().objective().equals("PVP") && !w.getPVP())
       throw new IllegalArgumentException(
           "This world has PvP disabled. Enable it in Server settings or choose another world.");
@@ -87,7 +91,12 @@ public final class ArenaManager {
   public synchronized void save(ArenaConfig c) throws IOException {
     validate(c, sessions.values());
     ArenaSession old = sessions.get(c.id());
-    if (old != null && (!old.players.isEmpty() || old.stopping || old.game != null))
+    if (old != null
+        && (!old.players.isEmpty()
+            || old.stopping
+            || old.finishing
+            || old.game != null
+            || plugin.village.pending(c.id())))
       throw new IllegalArgumentException(
           "Stop this arena and wait for restoration before editing it");
     Path temp = Files.createTempFile(configs, "arena-", ".tmp");
@@ -106,7 +115,11 @@ public final class ArenaManager {
 
   public synchronized void delete(String id) throws IOException {
     ArenaSession s = require(id);
-    if (!s.players.isEmpty() || s.stopping || s.game != null)
+    if (!s.players.isEmpty()
+        || s.stopping
+        || s.finishing
+        || s.game != null
+        || plugin.village.pending(id))
       throw new IllegalArgumentException("Stop this arena before deleting it");
     Files.delete(configs.resolve(s.config.id() + ".json"));
     sessions.remove(id);
@@ -152,7 +165,7 @@ public final class ArenaManager {
         return CompletableFuture.failedFuture(
             new IllegalArgumentException(
                 "Leave your current arena or restore your saved inventory first"));
-      if (s.stopping || s.game != null || s.players.size() >= s.config.maxPlayers())
+      if (s.stopping || s.finishing || s.game != null || s.players.size() >= s.config.maxPlayers())
         return CompletableFuture.failedFuture(
             new IllegalArgumentException("Arena is full or already playing"));
       members.put(uuid, s);
@@ -174,7 +187,7 @@ public final class ArenaManager {
                     plugin.onPlayer(
                         p,
                         () -> {
-                          if (!p.isOnline() || s.stopping)
+                          if (!p.isOnline() || s.stopping || s.finishing)
                             throw new IllegalArgumentException(
                                 "Joining was interrupted; original state will be restored");
                           p.getInventory().clear();
@@ -271,7 +284,16 @@ public final class ArenaManager {
       return CompletableFuture.completedFuture(null);
     }
     teleports.add(uuid);
-    CompletableFuture<Void> restore = snapshots.restore(p);
+    ArenaSession leaving = members.get(uuid);
+    CompletableFuture<Void> restore =
+        plugin
+            .onPlayer(
+                p,
+                () -> {
+                  plugin.ambience.clearNow(p, leaving);
+                  return null;
+                })
+            .thenCompose(v -> snapshots.restore(p));
     restore.whenComplete(
         (v, e) -> {
           teleports.remove(uuid);
@@ -317,12 +339,11 @@ public final class ArenaManager {
     if (plugin.gui != null) plugin.gui.forget(id);
     ArenaSession s = members.remove(id);
     if (s != null) {
+      if (s.game != null && !s.stopping) s.abandoned.add(id);
       s.players.remove(id);
       if (s.game != null) s.game.remove(id);
       if (!s.bots.isEmpty() && s.players.keySet().stream().allMatch(s.bots::contains)) {
-        clearBots(s);
-        s.game = null;
-        s.stopping = false;
+        stop(s.config.id(), "PRACTICE");
       }
       if (s.stopping && s.players.isEmpty()) {
         s.stopping = false;
@@ -341,6 +362,7 @@ public final class ArenaManager {
       if (!s.config.preset().equals("werewolf")
           || s.game != null
           || s.stopping
+          || s.finishing
           || !s.bots.isEmpty())
         throw new IllegalArgumentException("Choose a waiting Werewolf arena for practice");
       if (count < 1 || count > 44 || total < s.config.minPlayers() || total > s.config.maxPlayers())
@@ -358,6 +380,7 @@ public final class ArenaManager {
                         if (require(id) != s
                             || s.game != null
                             || s.stopping
+                            || s.finishing
                             || s.players.isEmpty()
                             || s.players.size() + count > s.config.maxPlayers())
                           throw new IllegalArgumentException(
@@ -390,18 +413,96 @@ public final class ArenaManager {
   public synchronized void start(String id) {
     ArenaSession s = require(id);
     if (s.stopping
+        || s.finishing
         || s.game != null
         || s.players.size() < s.config.minPlayers()
         || s.players.keySet().stream().anyMatch(busy::contains))
       throw new IllegalArgumentException("Wait for enough fully joined players before starting");
+    if (plugin.village.pending(id)) throw new IllegalArgumentException("Door recovery pending");
+    s.config.village().requireCapacity(s.players.size());
+    s.eventId = UUID.randomUUID().toString();
+    s.ambienceEpoch++;
+    s.ambienceNight = false;
+    s.ambienceFinale = false;
+    s.resultQueued = false;
+    s.finishing = false;
+    s.practice = !s.bots.isEmpty();
+    s.roster.clear();
+    s.abandoned.clear();
+    s.homes.clear();
+    for (var entry : s.players.entrySet())
+      if (!s.bots.contains(entry.getKey())) s.roster.put(entry.getKey(), entry.getValue());
+    List<ArenaConfig.Spawn> houses = new ArrayList<>(s.config.village().houses().values());
+    Collections.shuffle(houses);
+    int houseIndex = 0;
+    if (s.config.village().enabled())
+      for (UUID player : s.players.keySet()) s.homes.put(player, houses.get(houseIndex++));
     s.game = presets.get(s.config.preset()).create(s.config, Set.copyOf(s.players.keySet()));
     s.startedAt = System.currentTimeMillis();
     s.phaseEndsAt = s.startedAt + phaseMillis(s);
     s.observedPhase = s.game.phase();
-    update(s, "The game has begun. Open your compass to see your secret role.");
+    s.presentation =
+        plugin
+            .rewards
+            .begin(s)
+            .thenCompose(v -> plugin.village.prepare(s))
+            .thenCompose(v -> plugin.village.present(s, "WAITING"))
+            .thenRun(
+                () -> {
+                  if (s.game != null) s.phaseEndsAt = System.currentTimeMillis() + phaseMillis(s);
+                })
+            .thenCompose(v -> plugin.ambience.enter(s, true));
+    s.presentation.whenComplete(
+        (v, e) -> {
+          if (e != null) {
+            plugin.getLogger().warning("Village start failed: " + NexusArenaEngine.reason(e));
+            stop(s.config.id(), "INTERRUPTED");
+          }
+        });
+    update(
+        s,
+        s.game instanceof WerewolfGame
+            ? null
+            : "The game has begun. Open your compass to see your secret role.");
   }
 
   public CompletableFuture<Void> stop(String id) {
+    return stop(id, "STOPPED");
+  }
+
+  private CompletableFuture<Void> stop(String id, String reason) {
+    ArenaSession current = require(id);
+    CompletableFuture<Void> completion;
+    synchronized (this) {
+      if (current.finishing) return current.stopFuture;
+      current.finishing = true;
+      current.ambienceEpoch++;
+      completion = new CompletableFuture<>();
+      current.stopFuture = completion;
+    }
+    current
+        .presentation
+        .handle((ignored, error) -> (Void) null)
+        .thenCompose(
+            v ->
+                current.game == null
+                    ? CompletableFuture.completedFuture(null)
+                    : plugin.rewards.enqueue(current, reason))
+        .thenCompose(v -> plugin.ambience.conclude(current, reason))
+        .thenCompose(v -> stopPlayers(id))
+        .thenCompose(v -> plugin.village.restore(id))
+        .whenComplete(
+            (v, e) -> {
+              current.finishing = false;
+              if (e != null) {
+                plugin.getLogger().warning("Arena stop pending: " + NexusArenaEngine.reason(e));
+                completion.completeExceptionally(e);
+              } else completion.complete(null);
+            });
+    return completion;
+  }
+
+  private CompletableFuture<Void> stopPlayers(String id) {
     ArenaSession s;
     List<Player> players = new ArrayList<>();
     synchronized (this) {
@@ -425,20 +526,21 @@ public final class ArenaManager {
   public synchronized void tick() {
     long now = System.currentTimeMillis();
     for (ArenaSession s : sessions.values()) {
-      if (s.stopping || s.game == null) continue;
+      if (s.stopping || s.finishing || s.game == null || !s.presentation.isDone()) continue;
       if (now - s.startedAt >= s.config.durationSeconds() * 1000L) s.game.finish();
       if (!s.game.phase().equals(s.observedPhase)) {
-        s.observedPhase = s.game.phase();
-        s.phaseEndsAt = now + phaseMillis(s);
-        update(s, "Phase: " + s.game.phase() + ". Open your compass for the current actions.");
+        phaseChanged(s);
+        continue;
       }
       if (now - s.startedAt >= s.config.durationSeconds() * 1000L || !s.game.winner().isEmpty()) {
         update(
             s,
-            s.game.winner().isEmpty()
-                ? "Time is up. Returning to your original position."
-                : "Winner: " + s.game.winner() + ". Returning to your original position.");
-        stop(s.config.id());
+            s.game instanceof WerewolfGame
+                ? null
+                : s.game.winner().isEmpty()
+                    ? "Time is up. Returning to your original position."
+                    : "Winner: " + s.game.winner() + ". Returning to your original position.");
+        stop(s.config.id(), "COMPLETED");
         continue;
       }
       if (now >= s.phaseEndsAt) {
@@ -446,16 +548,45 @@ public final class ArenaManager {
         if (s.game instanceof WerewolfGame werewolf && !s.bots.isEmpty())
           werewolf.simulateTurn(Set.copyOf(s.bots), new Random());
         if (s.game.phase().equals(before)) s.game.advance();
-        s.phaseEndsAt = now + phaseMillis(s);
-        s.observedPhase = s.game.phase();
-        update(s, "Phase: " + s.game.phase() + ". Open your compass for the current actions.");
+        phaseChanged(s);
       }
     }
   }
 
+  public synchronized void phaseChanged(ArenaSession s) {
+    if (s.game == null || s.stopping || s.finishing || s.game.phase().equals(s.observedPhase))
+      return;
+    String previous = s.observedPhase;
+    s.ambienceEpoch++;
+    s.observedPhase = s.game.phase();
+    s.phaseEndsAt = System.currentTimeMillis() + phaseMillis(s);
+    CompletableFuture<Void> previousPresentation = s.presentation;
+    s.presentation =
+        previousPresentation
+            .thenCompose(v -> plugin.village.present(s, previous))
+            .thenRun(
+                () -> {
+                  if (s.game != null) s.phaseEndsAt = System.currentTimeMillis() + phaseMillis(s);
+                })
+            .thenCompose(v -> plugin.ambience.enter(s, false));
+    s.presentation.whenComplete(
+        (v, e) -> {
+          if (e != null) {
+            plugin.getLogger().warning("Village transition failed: " + NexusArenaEngine.reason(e));
+            stop(s.config.id(), "INTERRUPTED");
+          }
+        });
+    update(
+        s,
+        s.game instanceof WerewolfGame
+            ? null
+            : "Phase: " + s.game.phase() + ". Open your compass for the current actions.");
+  }
+
   private void update(ArenaSession s, String message) {
-    for (var entry : s.players.entrySet())
-      message = message.replace(entry.getKey().toString(), entry.getValue());
+    if (message != null)
+      for (var entry : s.players.entrySet())
+        message = message.replace(entry.getKey().toString(), entry.getValue());
     final String announcement = message;
     for (UUID uuid : s.players.keySet()) {
       Player p = Bukkit.getPlayer(uuid);
@@ -463,7 +594,8 @@ public final class ArenaManager {
         plugin.onPlayer(
             p,
             () -> {
-              p.sendMessage(Component.text(announcement, NamedTextColor.GOLD));
+              if (announcement != null)
+                p.sendMessage(Component.text(announcement, NamedTextColor.WHITE));
               if (s.game != null && !s.game.alive().contains(uuid)) {
                 p.setGameMode(GameMode.ADVENTURE);
                 p.setAllowFlight(true);
@@ -478,7 +610,7 @@ public final class ArenaManager {
 
   public void respawn(Player player) {
     ArenaSession s = session(player.getUniqueId());
-    if (s == null || s.stopping || transitioning(player.getUniqueId())) return;
+    if (s == null || s.stopping || s.finishing || transitioning(player.getUniqueId())) return;
     UUID id = player.getUniqueId();
     busy.add(id);
     teleports.add(id);

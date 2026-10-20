@@ -27,6 +27,18 @@ public final class CompassGUI implements Listener {
     key = new NamespacedKey(plugin, "arena-compass");
   }
 
+  static NamedTextColor roleColor(String role) {
+    return switch (role) {
+      case "WEREWOLF" -> NamedTextColor.RED;
+      case "SEER" -> NamedTextColor.LIGHT_PURPLE;
+      case "GUARD" -> NamedTextColor.AQUA;
+      case "WITCH" -> NamedTextColor.DARK_PURPLE;
+      case "CUPID" -> NamedTextColor.LIGHT_PURPLE;
+      case "HUNTER" -> NamedTextColor.DARK_GREEN;
+      default -> NamedTextColor.WHITE;
+    };
+  }
+
   static Component text(String text, NamedTextColor color) {
     return Component.text(text, color).decoration(TextDecoration.ITALIC, false);
   }
@@ -106,6 +118,9 @@ public final class CompassGUI implements Listener {
     holder.abilities.clear();
     inv.clear();
     GamePreset game = s.game;
+    WerewolfPresentation.View view =
+        game instanceof WerewolfGame wolf ? WerewolfPresentation.view(wolf, p.getUniqueId()) : null;
+    String phaseLabel = view == null ? s.phase() : view.phase();
     Set<UUID> alive = game == null ? Set.copyOf(s.players.keySet()) : game.alive();
     Map<UUID, Integer> totals = game == null ? Map.of() : game.votes(p.getUniqueId());
     int slot = 0;
@@ -119,13 +134,15 @@ public final class CompassGUI implements Listener {
           item(
               Material.PLAYER_HEAD,
               entry.getValue(),
-              game == null ? "Waiting for the game to start" : game.phase(),
+              game == null ? "Waiting for the game to start" : phaseLabel,
               game instanceof FreeplayGame
                   ? "Score: " + game.scores().getOrDefault(entry.getKey(), 0)
                   : "Votes: " + totals.getOrDefault(entry.getKey(), 0),
               game instanceof FreeplayGame
                   ? "Follow the objective to earn points"
-                  : "Click to vote or use your current role action");
+                  : view == null
+                      ? "Click to vote or use your current role action"
+                      : view.instruction());
       SkullMeta skull = (SkullMeta) head.getItemMeta();
       var profile = profiles.get(entry.getKey());
       if (profile != null) skull.setOwnerProfile(profile.clone());
@@ -144,12 +161,18 @@ public final class CompassGUI implements Listener {
                 ? "The game starts when an administrator is ready."
                 : friendly(game.help(p.getUniqueId()), s),
             "Role information is visible only to you."));
+    ItemStack roleCard = inv.getItem(45);
+    if (roleCard != null) {
+      var meta = roleCard.getItemMeta();
+      meta.displayName(text("Your secret role: " + role, roleColor(role)));
+      roleCard.setItemMeta(meta);
+    }
     inv.setItem(
         48,
         item(
             Material.BOOK,
             s.config.name(),
-            "Phase: " + s.phase(),
+            "Phase: " + phaseLabel,
             "PvP: " + (s.config.allowPvP() ? "allowed" : "disabled"),
             "Stay within the arena. Your original items are stored.",
             game instanceof FreeplayGame
@@ -162,8 +185,10 @@ public final class CompassGUI implements Listener {
             "Phase timer",
             s.game == null
                 ? "Waiting for an administrator to start"
-                : Math.max(0, (s.phaseEndsAt - System.currentTimeMillis() + 999) / 1000)
-                    + " seconds remaining"));
+                : view != null && !view.timerVisible()
+                    ? view.instruction()
+                    : Math.max(0, (s.phaseEndsAt - System.currentTimeMillis() + 999) / 1000)
+                        + " seconds remaining"));
     if (game != null) {
       int i = 0;
       int[] slots = {46, 47, 49, 51, 52};
@@ -213,10 +238,13 @@ public final class CompassGUI implements Listener {
         return;
       }
       String ability = holder.abilities.get(e.getRawSlot());
-      if (ability != null && s.game != null) {
+      if (ability != null && s.game != null && s.presentation.isDone() && !s.finishing) {
         try {
           p.sendMessage(
-              text(friendly(s.game.use(p.getUniqueId(), ability), s), NamedTextColor.GOLD));
+              text(
+                  friendly(s.game.use(p.getUniqueId(), ability), s),
+                  roleColor(s.game.role(p.getUniqueId()))));
+          plugin.arenas.phaseChanged(s);
           refresh(p);
         } catch (IllegalArgumentException ex) {
           p.sendMessage(text(ex.getMessage(), NamedTextColor.RED));
@@ -224,7 +252,7 @@ public final class CompassGUI implements Listener {
         return;
       }
       UUID target = holder.targets.get(e.getRawSlot());
-      if (target != null && s.game != null)
+      if (target != null && s.game != null && s.presentation.isDone() && !s.finishing)
         try {
           if (s.game instanceof FreeplayGame) {
             p.sendMessage(text(s.game.help(p.getUniqueId()), NamedTextColor.GOLD));
@@ -234,7 +262,8 @@ public final class CompassGUI implements Listener {
               s.game
                   .select(p.getUniqueId(), target)
                   .replace(target.toString(), s.players.getOrDefault(target, "Player"));
-          p.sendMessage(text(response, NamedTextColor.GOLD));
+          p.sendMessage(text(response, roleColor(s.game.role(p.getUniqueId()))));
+          plugin.arenas.phaseChanged(s);
           refresh(p);
         } catch (IllegalArgumentException ex) {
           p.sendMessage(text(ex.getMessage(), NamedTextColor.RED));

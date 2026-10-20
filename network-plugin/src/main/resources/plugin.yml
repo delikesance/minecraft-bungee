@@ -1,9 +1,26 @@
 name: VampyuyuNetwork
-version: 0.4.1
+version: 0.5.0
 main: win.vampyuyu.network.NetworkDisplay
 api-version: '1.21'
 description: Network roles, limited role commands, world selector and branded TAB list.
+softdepend: [NexusArenaEngine]
 commands:
+  warp:
+    description: Create a creative warp
+  warpadd:
+    description: Create a named warp at your current position
+  warps:
+    description: Browse public creative warps
+  warptp:
+    description: Visit a creative warp
+  warpadmin:
+    description: Manage personal warp limits
+    permission: vampyuyu.warp.admin
+  profil:
+    description: Global balance and event history
+  moneyadmin:
+    description: Adjust network currency
+    permission: vampyuyu.money.admin
   menu:
     description: Choose Lobby, Creative or Survival from any world
     usage: /menu
@@ -14,6 +31,12 @@ commands:
   vampyuyuoperator:
     description: Console-only operator management by UUID
 permissions:
+  vampyuyu.warp.admin:
+    default: op
+  vampyuyu.warp.unlimited:
+    default: op
+  vampyuyu.money.admin:
+    default: op
   vampyuyu.fly:
     description: Toggle your own flight
     default: false

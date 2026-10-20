@@ -34,6 +34,7 @@
     "roles": {},
     "cupidSeconds": 15,
     "witchSeconds": 15,
-    "hunterSeconds": 15
+    "hunterSeconds": 15,
+    "ambienceEnabled": true
   }
 }

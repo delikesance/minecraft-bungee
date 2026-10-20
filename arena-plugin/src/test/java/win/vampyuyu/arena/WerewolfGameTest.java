@@ -25,6 +25,7 @@ public class WerewolfGameTest {
         players().stream().filter(p -> g.role(p).equals("VILLAGER")).findFirst().orElseThrow();
     g.advance();
     g.advance();
+    g.advance(); // Seer turn ends before wolves wake.
     g.select(wolf, villager);
     assertEquals(1, g.votes(wolf).get(villager).intValue());
     assertTrue(g.votes(villager).isEmpty());

@@ -23,7 +23,93 @@ public record ArenaConfig(
     int voteSeconds,
     int nightSeconds,
     GameRules.Werewolf werewolf,
-    GameRules.Freeplay freeplay) {
+    GameRules.Freeplay freeplay,
+    Village village,
+    Rewards rewards) {
+  public record Door(int x, int y, int z) {}
+
+  public record Village(
+      boolean enabled, Map<String, Spawn> houses, Spawn meeting, Spawn daypoint, List<Door> doors) {
+    public Village {
+      houses = houses == null ? Map.of() : Map.copyOf(houses);
+      doors = doors == null ? List.of() : List.copyOf(doors);
+      if (houses.size() > 45 || doors.size() > 256)
+        throw new IllegalArgumentException("Too many houses or doors");
+      Set<String> positions = new HashSet<>();
+      for (Spawn p : houses.values())
+        if (!positions.add(p.x() + ":" + p.y() + ":" + p.z()))
+          throw new IllegalArgumentException("Houses must have distinct positions");
+      if (new HashSet<>(doors).size() != doors.size())
+        throw new IllegalArgumentException("Duplicate registered door");
+      for (String name : houses.keySet())
+        if (!name.matches("[A-Za-z0-9_-]{1,32}"))
+          throw new IllegalArgumentException("Invalid house name");
+    }
+
+    public void requireCapacity(int players) {
+      if (enabled && (houses.size() < players || meeting == null || daypoint == null))
+        throw new IllegalArgumentException("Configure enough houses, meeting and day points");
+    }
+
+    public static Village defaults() {
+      return new Village(false, Map.of(), null, null, List.of());
+    }
+  }
+
+  public record Rewards(int participation, int victory) {
+    public Rewards {
+      if (participation < 0 || victory < 0 || participation > 100000 || victory > 100000)
+        throw new IllegalArgumentException("Rewards must be 0–100000");
+    }
+  }
+
+  // Compatibility for existing integrations and fixtures.
+  public ArenaConfig(
+      String id,
+      String name,
+      String worldName,
+      String preset,
+      Bounds bounds,
+      Spawn spawn,
+      Set<Material> allowedBreakBlocks,
+      Set<Material> allowedPlaceBlocks,
+      boolean allowPvP,
+      boolean allowChests,
+      boolean allowDoors,
+      GameMode gameMode,
+      int durationSeconds,
+      int minPlayers,
+      int maxPlayers,
+      int discussionSeconds,
+      int voteSeconds,
+      int nightSeconds,
+      GameRules.Werewolf werewolf,
+      GameRules.Freeplay freeplay) {
+    this(
+        id,
+        name,
+        worldName,
+        preset,
+        bounds,
+        spawn,
+        allowedBreakBlocks,
+        allowedPlaceBlocks,
+        allowPvP,
+        allowChests,
+        allowDoors,
+        gameMode,
+        durationSeconds,
+        minPlayers,
+        maxPlayers,
+        discussionSeconds,
+        voteSeconds,
+        nightSeconds,
+        werewolf,
+        freeplay,
+        null,
+        null);
+  }
+
   public record Bounds(
       double minX, double minY, double minZ, double maxX, double maxY, double maxZ) {
     public Bounds {
@@ -70,6 +156,25 @@ public record ArenaConfig(
   public record Spawn(double x, double y, double z, float yaw, float pitch) {}
 
   public ArenaConfig {
+    village = village == null ? Village.defaults() : village;
+    rewards = rewards == null ? new Rewards(10, 5) : rewards;
+    if (bounds != null) {
+      List<Spawn> points = new ArrayList<>(village.houses().values());
+      if (village.meeting() != null) points.add(village.meeting());
+      if (village.daypoint() != null) points.add(village.daypoint());
+      for (Spawn p : points)
+        if (!Double.isFinite(p.x())
+            || !Double.isFinite(p.y())
+            || !Double.isFinite(p.z())
+            || !Float.isFinite(p.yaw())
+            || !Float.isFinite(p.pitch())
+            || !bounds.contains(p.x(), p.y(), p.z()))
+          throw new IllegalArgumentException("Village points must be inside the arena");
+      for (Door d : village.doors())
+        if (!bounds.contains(d.x() + .5, d.y(), d.z() + .5))
+          throw new IllegalArgumentException("Doors must be inside the arena");
+    }
+
     werewolf = werewolf == null ? GameRules.Werewolf.defaults() : werewolf;
     freeplay = freeplay == null ? GameRules.Freeplay.defaults() : freeplay;
     if ("werewolf".equals(preset)

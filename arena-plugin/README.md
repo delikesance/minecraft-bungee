@@ -90,4 +90,73 @@ Virtual participants are labeled `[Bot] Guest N` in the panel and compass. They 
 
 Stop/winner restoration clears all bots. The last real player leaving/disconnecting also clears the virtual cast and returns the arena to waiting. Real snapshots retain the existing restore-on-stop/reconnect/crash behavior. Free play and real-only Werewolf starts continue to use their normal rules. Authenticated `arena-practice-start` accepts `arenaId`, integer `botCount` (1–44, also constrained by the arena limits), and optional connected player `uuid`. Invalid limits and empty real-player games are rejected.
 
+
 `scripts/smoke-practice.cjs` checks authenticated start, invalid counts, virtual player flags, phase progression, absence of bot saves, stop cleanup and last-human disconnect/reconnect restoration on an empty disposable Survival server.
+
+## Village immersion and in-game administration (1.3)
+
+Werewolf nights now run **Guard → Seer → Wolves → Witch**, skipping absent/dead roles and a witch with no remaining potions. `nightSeconds` applies separately to Guard, Seer and Wolves. Cupid and Hunter retain their special phases. Living sleepers receive blindness. Private role cards and actions use role colors; public messages never reveal a role through its color.
+
+The wolves gather at their turn's beginning. **The last living wolf's vote closes the hunt immediately**; votes can change until then. All wolves return automatically to their assigned homes at the last vote or timeout. A tie or no ballots produces no victim. Teleports must finish before the next phase accepts actions; failures interrupt the event and restore players.
+
+| Admin command | Behavior |
+| --- | --- |
+| `/arena admin` | Paged browser, creation and confirmed deletion |
+| `/arena corner1`, `/arena corner2` | Capture each bounding corner |
+| `/arena create <id> <werewolf\|freeplay>` | Confirm creation with selected corners and current spawn |
+| `/arena setup <id>` | Bounds, spawn, durations, limits, protection, village mode and rewards |
+| `/arena house <id> add <name>` | Save the current position as a house |
+| `/arena houses <id>` | List coordinates, inspect, move here and confirm removal |
+| `/arena meeting <id> set` | Set the wolf meeting point here |
+| `/arena daypoint <id> set` | Set the daytime discussion point here |
+| `/arena doors <id>` | Register the targeted door or remove a registration |
+| `/eventadmin rewards <id> <participation> <victory>` | Set rewards; each amount must be 0–100,000 |
+
+These commands require `nexusarena.admin` (OP by default). Select corners with sufficient vertical clearance and stand inside the box when setting spawn/points. House names use 1–32 ASCII letters, digits, `_` or `-`. Edits are refused while occupied or restoring.
+
+Existing arenas load with village mode disabled. Configure safe houses, a meeting point and a day point, then enable village mode in Setup. A distinct house is required per participant, including practice bots. Assignments are shuffled once per game. Players sleep at home, wolves gather during their hunt, and living players reach the day point at dawn. Sleeping movement is blocked.
+
+Doors are optional and explicitly registered; register both leaves of a double doorway. They close at night and open by day, with manual/redstone manipulation blocked during play. `doors/<id>.json` journals original opening states before changes. Stop restores them; startup retries recovery after incidents. Destroyed/replaced door blocks are not recreated. An unavailable world retains its journal and blocks another start; fix world availability and use **Stop & restore** to retry. The web editor preserves village/reward fields saved in game.
+
+### Shards and global participation history
+
+Normal completion gives each real participant **10 Shards**, plus **5** for a win. Eliminated players who stay remain eligible, including eliminated members of the winning camp. Lovers victory rewards only the surviving couple. A timed draw or sandbox completion gives participation only. Bots, practice, abandonment, operator stop and interruptions give zero; real-player history records their outcome.
+
+`/profil` on all three backends opens the personal balance/history menu outside an arena. Balances and history live in the central SQLite database. During an outage the menu reports unavailability rather than showing a false zero. Configure the display name through the panel's `NETWORK_CURRENCY_NAME`, default `Shards`.
+
+`/moneyadmin give|take|set <player|uuid> <amount>` requires `vampyuyu.money.admin` (OP by default), or server console. Names resolve through that backend's known-player cache; use UUIDs for remote players. Corrections use integer amounts from 0 to 1,000,000,000, cannot overdraw, and record actor/server. No shop or player transfers are included.
+
+Authenticated private `POST /bridge/profile`, `/bridge/events` and `/bridge/money` extend the existing bridge. Event IDs and correction IDs prevent duplicate credits; conflicting retries fail. Each result batch and its credits commit transactionally. `results/active` journals interrupted games; final payloads move atomically to `results` and retry every five seconds until acknowledged. Include these directories and the SQLite database in backups. Deploy the panel and both plugins together after emptying arenas.
+
+### Isolated integration verification
+
+Build both plugins with `mvn clean package`. The smoke fixture uses `vampyuyu-arena-build:latest` as its Java 21 runtime image. Prepare its test-only bridge binary and protocol client:
+
+```sh
+docker run --rm -v "$PWD:/src" -v /tmp/community-smoke-bin:/out -w /src \
+  golang:1.26-alpine sh -c 'CGO_ENABLED=0 go test -c -o /out/bridge.test ./internal/players'
+npm install --prefix /tmp/community-smoke-node --no-save minecraft-protocol@1.68.0
+NODE_PATH=/tmp/community-smoke-node/node_modules node scripts/smoke-community.cjs
+```
+
+`SMOKE_PAPER_DIR` defaults to `state/yuyu-local/survival`: it supplies cached Paper 1.21.9 build 59 runtime files and an already accepted EULA. The script copies them into a fresh temporary directory, creates an isolated Docker network, SQLite bridge, world and six forwarded clients (including vote timeout, reward and crash/restart recovery checks), and exposes test access only on loopback. It never starts or edits the existing stack/worlds. Containers and network are removed afterward; temporary world/logs remain for inspection. Real authenticated Velocity routing and Folia runtime validation remain separate checks.
+
+## Immersive Werewolf ambience (1.4)
+
+Werewolf now uses native Minecraft sounds and English titles, without a resource pack. The opening reminds each player of their own role. A low bell announces dusk once per night; a gentle chime announces dawn. Voting and normal completion have shared cues. Guard, Seer, Wolves, Witch, Cupid and the pending Hunter receive their own colored wakeup and instructions privately, after spatial transitions succeed.
+
+Living wolves hear two soft heartbeat pulses, 250 ms apart, every four seconds during their hunt. The first pair follows arrival at the meeting point. The last required vote or the hunt deadline immediately invalidates further pulses. There is no daytime ambience loop.
+
+The action bar shows the active player's instruction and remaining time, with the last five seconds highlighted. Sleeping players and observers see only **The village sleeps** during secret turns. The compass applies the same privacy policy to phase labels, head descriptions and the phase timer; the administrator panel keeps its actual phase/deadline information. The eliminated Hunter retains private instructions while their final shot is pending.
+
+Toggle **Immersive ambience** in `/arena setup <id>` while the arena is empty. It persists as `werewolf.ambienceEnabled`; absent or null values default to `true`. The web editor preserves this setting. When disabled, sounds/titles are omitted, while English chat instructions, action bars and private compass information remain available.
+
+All delayed cues are guarded by game identity and transition generation, plus current membership, phase and recovery state. Leaving clears the role title and action bar; stopping invalidates pending cues. A normal conclusion is shown before restoration and fades naturally. Free play keeps its existing presentation and scoring.
+
+With the dependencies described in the isolated integration section, run:
+
+```sh
+AMBIENCE_SMOKE_ONLY=1 NODE_PATH=/tmp/community-smoke-node/node_modules node scripts/smoke-community.cjs
+```
+
+This variant inspects each forwarded client's sound, title, action-bar and compass packets. It checks private wakeups, heartbeat pairs, one dusk bell, end-of-vote/timeout behavior, muted presentation, restoration cleanup and the victory conclusion. Existing worlds and the running network remain untouched.

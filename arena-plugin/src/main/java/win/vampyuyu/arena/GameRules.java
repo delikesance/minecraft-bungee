@@ -8,8 +8,18 @@ public final class GameRules {
   private GameRules() {}
 
   public record Werewolf(
-      Map<String, Integer> roles, int cupidSeconds, int witchSeconds, int hunterSeconds) {
+      Map<String, Integer> roles,
+      int cupidSeconds,
+      int witchSeconds,
+      int hunterSeconds,
+      Boolean ambienceEnabled) {
+    public Werewolf(
+        Map<String, Integer> roles, int cupidSeconds, int witchSeconds, int hunterSeconds) {
+      this(roles, cupidSeconds, witchSeconds, hunterSeconds, true);
+    }
+
     public Werewolf {
+      ambienceEnabled = ambienceEnabled == null ? true : ambienceEnabled;
       roles = roles == null ? Map.of() : Map.copyOf(roles);
       for (var e : roles.entrySet()) {
         try {

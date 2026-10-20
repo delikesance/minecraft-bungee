@@ -144,6 +144,12 @@ public final class ArenaProtectionListener implements Listener {
     ArenaSession s = arena(e.getPlayer());
     if (s == null || plugin.arenas.teleporting(e.getPlayer().getUniqueId()) || e.getTo() == null)
       return;
+    if (!(e instanceof PlayerTeleportEvent)
+        && (plugin.village.sleeping(e.getPlayer()) || !s.presentation.isDone())
+        && e.hasChangedPosition()) {
+      e.setTo(e.getFrom());
+      return;
+    }
     if (!inside(s, e.getTo())) {
       if (inside(s, e.getFrom())) e.setTo(e.getFrom());
       else if (!(e instanceof PlayerTeleportEvent))
@@ -241,8 +247,11 @@ public final class ArenaProtectionListener implements Listener {
     GamePreset game = s.game;
     UUID from = e.getPlayer().getUniqueId();
     boolean alive = game == null || game.alive().contains(from);
-    boolean night = game != null && java.util.Set.of("NIGHT", "WITCH").contains(game.phase());
-    if (night && alive && !game.role(from).equals("WEREWOLF")) {
+    boolean night =
+        game != null
+            && java.util.Set.of("CUPID", "GUARD", "SEER", "NIGHT", "WITCH", "HUNTER_SHOT")
+                .contains(game.phase());
+    if (night && alive && (!game.phase().equals("NIGHT") || !game.role(from).equals("WEREWOLF"))) {
       plugin.message(
           e.getPlayer(), "The village is asleep. Use your compass for your night action.");
       return;
@@ -252,7 +261,7 @@ public final class ArenaProtectionListener implements Listener {
                 (!alive ? "[Observers] " : night ? "[Wolves] " : "[Arena] ")
                     + e.getPlayer().getName()
                     + " » ",
-                NamedTextColor.GOLD)
+                !alive ? NamedTextColor.GRAY : night ? NamedTextColor.RED : NamedTextColor.WHITE)
             .append(e.message());
     for (UUID target : s.players.keySet()) {
       boolean targetAlive = game == null || game.alive().contains(target);
@@ -266,6 +275,17 @@ public final class ArenaProtectionListener implements Listener {
               return null;
             });
     }
+  }
+
+  @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+  public void villageDoor(org.bukkit.event.player.PlayerInteractEvent e) {
+    if (e.getClickedBlock() != null && plugin.village.controlled(e.getClickedBlock()))
+      e.setCancelled(true);
+  }
+
+  @EventHandler
+  public void villageRedstone(org.bukkit.event.block.BlockRedstoneEvent e) {
+    if (plugin.village.controlled(e.getBlock())) e.setNewCurrent(e.getOldCurrent());
   }
 
   @EventHandler

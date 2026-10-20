@@ -35,6 +35,14 @@ export type Config = {
   discussionSeconds: number;
   voteSeconds: number;
   nightSeconds: number;
+  village?: {
+    enabled: boolean;
+    houses: Record<string, Config["spawn"]>;
+    meeting?: Config["spawn"];
+    daypoint?: Config["spawn"];
+    doors: { x: number; y: number; z: number }[];
+  };
+  rewards?: { participation: number; victory: number };
   werewolf?: WerewolfRules;
   freeplay?: FreeplayRules;
 };
@@ -70,7 +78,9 @@ const titles: Record<string, string> = {
   WAITING: "Waiting for players",
   DISCUSSION: "Day · Discussion",
   DAY_VOTE: "Day · Voting",
-  NIGHT: "Night · Secret actions",
+  GUARD: "Night · Guard",
+  SEER: "Night · Seer",
+  NIGHT: "Night · Wolves",
   FINISHED: "Game finished",
   CUPID: "Cupid · Choose the lovers",
   WITCH: "Night · Potions",
@@ -957,7 +967,7 @@ export function Arenas({
                         600,
                       )}
                       {number("voteSeconds", "Day vote (seconds)", 5, 300)}
-                      {number("nightSeconds", "Night (seconds)", 5, 300)}
+                      {number("nightSeconds", "Night turn (seconds)", 5, 300)}
                     </>
                   )}
                 </div>

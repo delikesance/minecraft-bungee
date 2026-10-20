@@ -13,6 +13,10 @@ import org.bukkit.plugin.java.JavaPlugin;
 public final class NexusArenaEngine extends JavaPlugin {
   public ArenaManager arenas;
   CompassGUI gui;
+  WerewolfAmbience ambience;
+  VillageController village;
+  ArenaAdmin admin;
+  EventRewards rewards;
   RedisManager redis;
   CrossServerBridge bridge;
   String serverId;
@@ -54,6 +58,10 @@ public final class NexusArenaEngine extends JavaPlugin {
               .toList();
       arenas = new ArenaManager(this);
       gui = new CompassGUI(this);
+      ambience = new WerewolfAmbience(this);
+      village = new VillageController(this);
+      village.recover();
+      admin = new ArenaAdmin(this);
       bridge = new CrossServerBridge(this);
       getServer().getPluginManager().registerEvents(gui, this);
       getServer().getPluginManager().registerEvents(new ArenaProtectionListener(this), this);
@@ -75,7 +83,9 @@ public final class NexusArenaEngine extends JavaPlugin {
               .trim();
       if (token.length() < 32)
         throw new IllegalArgumentException("Panel bridge token missing or too short");
+      rewards = new EventRewards(this, token);
       api = new ArenaHttpApi(this, token);
+      Objects.requireNonNull(getCommand("eventadmin")).setExecutor(admin::rewards);
       Objects.requireNonNull(getCommand("arena")).setExecutor(this::command);
       getCommand("arena")
           .setTabCompleter(
@@ -89,6 +99,8 @@ public final class NexusArenaEngine extends JavaPlugin {
           () -> {
             try {
               arenas.tick();
+              for (ArenaSession session : arenas.all()) ambience.tick(session);
+              if (System.currentTimeMillis() / 1000 % 5 == 0) rewards.flush();
               for (Player p : Bukkit.getOnlinePlayers())
                 onPlayer(
                     p,
@@ -210,6 +222,7 @@ public final class NexusArenaEngine extends JavaPlugin {
       }
       if (!sender.hasPermission("nexusarena.admin"))
         throw new IllegalArgumentException("Arena administrator permission required");
+      if (admin.command(sender, sub, args)) return true;
       CompletableFuture<?> op =
           switch (sub) {
             case "reload" ->
@@ -261,6 +274,7 @@ public final class NexusArenaEngine extends JavaPlugin {
     clock.shutdownNow();
     if (redis != null) redis.close();
     if (arenas != null) {
+      for (ArenaSession session : arenas.all()) session.ambienceEpoch++;
       // Paper shutdown runs on its main thread. Folia snapshots are intentionally
       // retained for recovery on login; never mutate foreign-region entities here.
       boolean folia;
@@ -278,6 +292,7 @@ public final class NexusArenaEngine extends JavaPlugin {
               arenas.allowTeleport(p.getUniqueId(), true);
               if (!p.teleport(arenas.snapshots.origin(y)))
                 throw new IllegalStateException("Return teleport was refused");
+              ambience.clearNow(p, arenas.session(p.getUniqueId()));
               arenas.snapshots.apply(p, y);
               p.saveData();
               arenas.snapshots.delete(p.getUniqueId());

@@ -75,8 +75,7 @@ public class ExpandedGameTest {
     var g = game(5, Map.of("WEREWOLF", 1, "WITCH", 1));
     UUID witch = who(g, "WITCH"), wolf = who(g, "WEREWOLF"), victim = who(g, "VILLAGER");
     phase(g, "NIGHT");
-    g.select(wolf, victim);
-    g.advance();
+    g.select(wolf, victim); // The sole wolf completes the vote immediately.
     assertEquals("WITCH", g.phase());
     assertTrue(g.alive().contains(victim));
     g.use(witch, "heal");
@@ -93,12 +92,13 @@ public class ExpandedGameTest {
   public void guardPreventsAttackAndMustAlternate() {
     var g = game(6, Map.of("WEREWOLF", 1, "GUARD", 1));
     UUID guard = who(g, "GUARD"), wolf = who(g, "WEREWOLF"), victim = who(g, "VILLAGER");
-    phase(g, "NIGHT");
+    phase(g, "GUARD");
     g.select(guard, victim);
-    g.select(wolf, victim);
     g.advance();
+    assertEquals("NIGHT", g.phase());
+    g.select(wolf, victim);
     assertTrue(g.alive().contains(victim));
-    phase(g, "NIGHT");
+    phase(g, "GUARD");
     assertThrows(IllegalArgumentException.class, () -> g.select(guard, victim));
     g.select(guard, guard);
   }

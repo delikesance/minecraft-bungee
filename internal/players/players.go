@@ -46,6 +46,9 @@ func ValidUUID(id string) bool {
 	return uuidPattern.MatchString(id) && id != "00000000-0000-0000-0000-000000000000"
 }
 func Migrate(db *sql.DB) error {
+	if err := economyMigrate(db); err != nil {
+		return err
+	}
 	_, err := db.Exec(`CREATE TABLE IF NOT EXISTS players(uuid TEXT PRIMARY KEY,name TEXT NOT NULL,role TEXT NOT NULL DEFAULT 'player',first_seen INTEGER NOT NULL,last_seen INTEGER NOT NULL);
  CREATE TABLE IF NOT EXISTS player_presence(server TEXT NOT NULL,uuid TEXT NOT NULL,seen INTEGER NOT NULL,gamemode TEXT NOT NULL DEFAULT '',PRIMARY KEY(server,uuid));
  CREATE TABLE IF NOT EXISTS player_bridges(server TEXT PRIMARY KEY,seen INTEGER NOT NULL);
@@ -304,6 +307,7 @@ func (s *Service) SetRole(id, role, actor string) (bool, error) {
 }
 func (s *Service) BridgeHandler(token string) http.Handler {
 	mux := http.NewServeMux()
+	s.economyRoutes(mux)
 	for _, route := range []string{"sync", "register"} {
 		register := route == "register"
 		mux.HandleFunc("POST /bridge/"+route, func(w http.ResponseWriter, r *http.Request) {

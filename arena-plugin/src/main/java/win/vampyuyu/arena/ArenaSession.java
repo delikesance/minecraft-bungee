@@ -11,12 +11,21 @@ public final class ArenaSession {
   public volatile long startedAt, phaseEndsAt;
   public volatile String observedPhase = "WAITING";
   public volatile boolean stopping;
+  final Map<UUID, ArenaConfig.Spawn> homes = new ConcurrentHashMap<>();
+  final Map<UUID, String> roster = new ConcurrentHashMap<>();
+  final Set<UUID> abandoned = ConcurrentHashMap.newKeySet();
+  volatile CompletableFuture<Void> presentation = CompletableFuture.completedFuture(null);
+  volatile boolean resultQueued, finishing, practice;
+  volatile String eventId;
+  volatile long ambienceEpoch, nextHeartbeatAt;
+  volatile boolean ambienceNight, ambienceFinale;
+  volatile CompletableFuture<Void> stopFuture = CompletableFuture.completedFuture(null);
 
   ArenaSession(ArenaConfig config) {
     this.config = config;
   }
 
   public String phase() {
-    return stopping ? "RESTORING" : game == null ? "WAITING" : game.phase();
+    return stopping || finishing ? "RESTORING" : game == null ? "WAITING" : game.phase();
   }
 }
