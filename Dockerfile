@@ -7,6 +7,11 @@ RUN npm ci
 COPY web/ ./
 RUN npm run build
 
+FROM python:3.13-alpine@sha256:2d9aefe2fef018a7eb2c13064c89c71929800fd2e5dccdbf52ea5da5bb8d929a AS pack
+WORKDIR /build
+COPY scripts/build_pack.py scripts/build_pack.py
+COPY resource-pack/pack resource-pack/pack
+RUN python3 scripts/build_pack.py /out
 FROM golang:1.26-alpine@sha256:3082400e369fa24d5fc60bca20edab3f6d604e0c5a690ec66b295eff4dd87ade AS go-base
 WORKDIR /src
 COPY go.mod go.sum ./
@@ -52,11 +57,6 @@ WORKDIR /build
 COPY arena-plugin/pom.xml ./
 COPY arena-plugin/src ./src
 RUN --mount=type=cache,target=/root/.m2 mvn --batch-mode package
-FROM python:3.13-alpine@sha256:2d9aefe2fef018a7eb2c13064c89c71929800fd2e5dccdbf52ea5da5bb8d929a AS pack
-WORKDIR /build
-COPY scripts/build_pack.py scripts/build_pack.py
-COPY resource-pack/pack resource-pack/pack
-RUN python3 scripts/build_pack.py /out
 FROM ${MINECRAFT_IMAGE} AS server
 COPY --from=pack /out/vampyuyu-menus.sha1 /opt/vampyuyu-menus.sha1
 COPY --from=network-build /build/target/network-display.jar /plugins/network-display.jar
