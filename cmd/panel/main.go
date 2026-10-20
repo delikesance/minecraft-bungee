@@ -56,6 +56,7 @@ func main() {
 		controller = "http://controller:8081"
 	}
 	app := panel.New(db, origin, controller, token)
+	app.PackFile = os.Getenv("MENU_PACK_FILE")
 	log.Print("panel listening on :8080")
 	bridgeToken, err := control.Secret("/run/secrets/role_bridge_token")
 	if err != nil {

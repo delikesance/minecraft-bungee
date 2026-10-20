@@ -87,7 +87,9 @@ public final class NetworkDisplay extends JavaPlugin implements Listener {
             getServer().getPluginManager().disablePlugin(this);
             return;
         }
-        new WorldSelector(this);
+        MenuPack pack = MenuPack.load(this);
+        if (pack != null) getServer().getPluginManager().registerEvents(pack, this);
+        new WorldSelector(this, pack);
         try { new CommunityFeatures(this, server, bridge, token); }
         catch (Exception e) {
             getLogger().log(java.util.logging.Level.SEVERE, "Community features failed to load", e);

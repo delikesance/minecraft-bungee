@@ -2,9 +2,12 @@ package panel
 
 import (
 	"bytes"
+	"crypto/sha1"
+	"encoding/hex"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -218,6 +221,42 @@ func TestArenaActionsRequireCSRFAndFixedOperation(t *testing.T) {
 	for _, action := range []string{"arena-exec", "arena-op", "arena-command"} {
 		if w := request(t, s, "POST", "/api/v1/servers/creative/game/action", `{"action":"`+action+`"}`, cookie, csrf); w.Code != 400 {
 			t.Fatal(action, w.Code)
+		}
+	}
+}
+
+func TestMenuPackServedOnlyByHash(t *testing.T) {
+	s, _ := setup(t)
+	file := filepath.Join(t.TempDir(), "pack.zip")
+	if e := os.WriteFile(file, []byte("PK-test-pack"), 0o600); e != nil {
+		t.Fatal(e)
+	}
+	s.PackFile = file
+	sum := sha1.Sum([]byte("PK-test-pack"))
+	digest := hex.EncodeToString(sum[:])
+	get := func(path string) *httptest.ResponseRecorder {
+		r := httptest.NewRequest("GET", path, nil)
+		w := httptest.NewRecorder()
+		s.Handler().ServeHTTP(w, r)
+		return w
+	}
+	ok := get("/pack/" + digest + ".zip")
+	if ok.Code != 200 || ok.Body.String() != "PK-test-pack" || ok.Header().Get("Content-Type") != "application/zip" {
+		t.Fatalf("pack not served: %d %q %q", ok.Code, ok.Body.String(), ok.Header().Get("Content-Type"))
+	}
+	if !strings.Contains(ok.Header().Get("Cache-Control"), "immutable") {
+		t.Fatal("pack must be cacheable by hash")
+	}
+	for _, path := range []string{"/pack/" + strings.Repeat("0", 40) + ".zip", "/pack/other.zip"} {
+		if w := get(path); w.Code != 404 || strings.Contains(w.Body.String(), "<html") {
+			t.Fatalf("%s must be a plain 404, got %d", path, w.Code)
+		}
+	}
+	s2, _ := setup(t)
+	if w := httptest.NewRecorder(); true {
+		s2.Handler().ServeHTTP(w, httptest.NewRequest("GET", "/pack/"+digest+".zip", nil))
+		if w.Code != 404 {
+			t.Fatal("no pack configured must be 404")
 		}
 	}
 }

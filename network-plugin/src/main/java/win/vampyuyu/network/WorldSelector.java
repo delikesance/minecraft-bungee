@@ -54,10 +54,31 @@ final class WorldSelector implements Listener {
         return item;
     }
 
+    // Painted layout: each world is a 3x3 arch; the centre column is information and the lobby link.
+    private static final int[] CREATIVE_AREA = {0, 1, 2, 9, 10, 11, 18, 19, 20};
+    private static final int[] SURVIVAL_AREA = {6, 7, 8, 15, 16, 17, 24, 25, 26};
+    private static final int[] LOBBY_AREA = {21, 22, 23};
+    private static final int[] HUB_AREA = {3, 4, 5, 12, 13, 14};
+
+    private static boolean in(int[] area, int slot) {
+        for (int candidate : area) if (candidate == slot) return true;
+        return false;
+    }
+
     private static final class Menu implements InventoryHolder {
         private final Inventory inventory;
+        private final boolean skinned;
 
-        Menu() {
+        Menu(boolean skinned) {
+            this.skinned = skinned;
+            if (skinned) {
+                inventory = Bukkit.createInventory(this, 27, MenuPack.title(MenuPack.LOBBY, Component.empty()));
+                fill(CREATIVE_AREA, creativeCard());
+                fill(SURVIVAL_AREA, survivalCard());
+                fill(LOBBY_AREA, lobbyCard());
+                fill(HUB_AREA, hubCard());
+                return;
+            }
             inventory = Bukkit.createInventory(this, 27, brand());
             ItemStack dark = item(Material.BLACK_STAINED_GLASS_PANE, Component.empty());
             ItemStack wine = item(Material.RED_STAINED_GLASS_PANE, Component.empty());
@@ -74,34 +95,58 @@ final class WorldSelector implements Listener {
                 inventory.setItem(slot, ivory);
             }
             inventory.setItem(4, gold);
-            inventory.setItem(CREATIVE_SLOT, item(Material.BRICKS,
-                    text("CREATIVE", ROSE).decorate(TextDecoration.BOLD),
-                    text("A world for your imagination.", IVORY),
-                    Component.empty(),
-                    text("Build freely. Dream bigger.", MUTED),
-                    text("Creative mode · Free building", MUTED),
-                    Component.empty(),
-                    text("Click to enter →", GOLD)));
-            inventory.setItem(13, item(Material.NETHER_STAR,
-                    text("VAMPYUYU NETWORK", GOLD).decorate(TextDecoration.BOLD),
-                    text("Two worlds. Your next story.", IVORY),
-                    Component.empty(),
-                    text("Choose Creative or Survival", MUTED),
-                    text("to begin your adventure.", MUTED)));
-            inventory.setItem(SURVIVAL_SLOT, item(Material.GOLDEN_PICKAXE,
-                    text("SURVIVAL", GOLD).decorate(TextDecoration.BOLD),
-                    text("An adventure worth sharing.", IVORY),
-                    Component.empty(),
-                    text("Gather. Explore. Make it yours.", MUTED),
-                    text("Survival mode · Open exploration", MUTED),
-                    Component.empty(),
-                    text("Click to enter →", GOLD)));
+            inventory.setItem(CREATIVE_SLOT, creativeCard());
+            inventory.setItem(13, hubCard());
+            inventory.setItem(SURVIVAL_SLOT, survivalCard());
             inventory.setItem(LOBBY_SLOT, item(Material.COMPASS,
                     text("LOBBY", ROSE).decorate(TextDecoration.BOLD),
                     text("Return to the network hub.", MUTED)));
             inventory.setItem(CLOSE_SLOT, item(Material.BARRIER,
                     text("Close menu", ROSE),
                     text("Stay in your current world.", MUTED)));
+        }
+
+        private void fill(int[] area, ItemStack card) {
+            for (int slot : area) inventory.setItem(slot, MenuPack.invisible(card.clone()));
+        }
+
+        private static ItemStack creativeCard() {
+            return item(Material.BRICKS,
+                    text("CREATIVE", ROSE).decorate(TextDecoration.BOLD),
+                    text("A world for your imagination.", IVORY),
+                    Component.empty(),
+                    text("Build freely. Dream bigger.", MUTED),
+                    text("Creative mode · Free building", MUTED),
+                    Component.empty(),
+                    text("Click to enter →", GOLD));
+        }
+
+        private static ItemStack survivalCard() {
+            return item(Material.GOLDEN_PICKAXE,
+                    text("SURVIVAL", GOLD).decorate(TextDecoration.BOLD),
+                    text("An adventure worth sharing.", IVORY),
+                    Component.empty(),
+                    text("Gather. Explore. Make it yours.", MUTED),
+                    text("Survival mode · Open exploration", MUTED),
+                    Component.empty(),
+                    text("Click to enter →", GOLD));
+        }
+
+        private static ItemStack lobbyCard() {
+            return item(Material.COMPASS,
+                    text("LOBBY", ROSE).decorate(TextDecoration.BOLD),
+                    text("Return to the network hub.", MUTED),
+                    Component.empty(),
+                    text("Click to return →", GOLD));
+        }
+
+        private static ItemStack hubCard() {
+            return item(Material.NETHER_STAR,
+                    text("VAMPYUYU NETWORK", GOLD).decorate(TextDecoration.BOLD),
+                    text("Two worlds. Your next story.", IVORY),
+                    Component.empty(),
+                    text("Choose Creative or Survival", MUTED),
+                    text("to begin your adventure.", MUTED));
         }
 
         @Override
@@ -111,9 +156,11 @@ final class WorldSelector implements Listener {
     }
 
     private final JavaPlugin plugin;
+    private final MenuPack pack;
 
-    WorldSelector(JavaPlugin plugin) {
+    WorldSelector(JavaPlugin plugin, MenuPack pack) {
         this.plugin = plugin;
+        this.pack = pack;
         plugin.getServer().getMessenger().registerOutgoingPluginChannel(plugin, "BungeeCord");
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
         Objects.requireNonNull(plugin.getCommand("menu")).setExecutor((sender, command, label, args) -> {
@@ -127,24 +174,24 @@ final class WorldSelector implements Listener {
     }
 
     private void open(Player player) {
-        player.openInventory(new Menu().getInventory());
+        player.openInventory(new Menu(pack != null && pack.active(player)).getInventory());
         player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.35f, 1.1f);
     }
 
     @EventHandler
     public void click(InventoryClickEvent event) {
-        if (!(event.getView().getTopInventory().getHolder() instanceof Menu)
+        if (!(event.getView().getTopInventory().getHolder() instanceof Menu menu)
                 || !(event.getWhoClicked() instanceof Player player)) {
             return;
         }
         event.setCancelled(true);
         int slot = event.getRawSlot();
-        if (slot == CLOSE_SLOT) {
+        if (!menu.skinned && slot == CLOSE_SLOT) {
             // Inventory view changes must run after the click event has completed.
             plugin.getServer().getScheduler().runTask(plugin, () -> player.closeInventory());
             return;
         }
-        String server = slot == CREATIVE_SLOT ? "creative" : slot == SURVIVAL_SLOT ? "survival" : slot == LOBBY_SLOT ? "lobby" : null;
+        String server = destination(menu.skinned, slot);
         if (server == null) {
             return;
         }
@@ -169,6 +216,14 @@ final class WorldSelector implements Listener {
                 plugin.getLogger().warning("Unable to encode server selection");
             }
         });
+    }
+
+    /** Maps a clicked top-inventory slot to a backend, or null for decoration. */
+    static String destination(boolean skinned, int slot) {
+        if (skinned) {
+            return in(CREATIVE_AREA, slot) ? "creative" : in(SURVIVAL_AREA, slot) ? "survival" : in(LOBBY_AREA, slot) ? "lobby" : null;
+        }
+        return slot == CREATIVE_SLOT ? "creative" : slot == SURVIVAL_SLOT ? "survival" : slot == LOBBY_SLOT ? "lobby" : null;
     }
 
     @EventHandler

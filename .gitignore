@@ -17,3 +17,4 @@ __pycache__/
 
 arena-plugin/target/
 network-plugin/target/
+resource-pack/dist/

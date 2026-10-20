@@ -1,0 +1,18 @@
+{
+  "providers": [
+    {
+      "type": "space",
+      "advances": {
+        "": -8,
+        "": -156
+      }
+    },
+    {
+      "type": "bitmap",
+      "file": "vampyuyu:font/menu_lobby.png",
+      "ascent": 13,
+      "height": 168,
+      "chars": [""]
+    }
+  ]
+}

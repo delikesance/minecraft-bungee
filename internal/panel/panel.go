@@ -39,9 +39,12 @@ type Server struct {
 	Origin, Controller, Token string
 	Secure                    bool
 	HTTP                      *http.Client
-	mu                        sync.Mutex
-	attempts                  map[string]attempt
-	streams                   chan struct{}
+	// PackFile is the menu resource pack served publicly at /pack/<sha1>.zip.
+	PackFile string
+	pack     packCache
+	mu       sync.Mutex
+	attempts map[string]attempt
+	streams  chan struct{}
 }
 
 func Open(filename string) (*sql.DB, error) {
@@ -343,6 +346,7 @@ func (s *Server) Handler() http.Handler {
 		slog.Info("admin action", "actor", v.User, "server", id, "action", action, "status", status)
 	}))
 	mux.HandleFunc("GET /api/v1/servers/{id}/console", protected(s.console))
+	mux.HandleFunc("GET /pack/{file}", s.servePack)
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) { fail(w, 404, "unknown endpoint") })
 	static, _ := fs.Sub(Assets, "static")
 	files := http.FileServer(http.FS(static))

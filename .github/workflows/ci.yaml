@@ -16,6 +16,7 @@ jobs:
       - run: go test ./...
       - run: go vet ./...
       - run: make test-archives
+      - run: make test-pack
       - uses: actions/setup-node@v4
         with:
           node-version: '24'

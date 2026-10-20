@@ -26,6 +26,8 @@ USER 1000:1000
 WORKDIR /app
 FROM runtime AS panel
 COPY --from=build /out/panel /app/panel
+COPY --from=pack /out/vampyuyu-menus.zip /app/vampyuyu-menus.zip
+ENV MENU_PACK_FILE=/app/vampyuyu-menus.zip
 EXPOSE 8080
 ENTRYPOINT ["/app/panel"]
 FROM runtime AS controller
@@ -50,7 +52,13 @@ WORKDIR /build
 COPY arena-plugin/pom.xml ./
 COPY arena-plugin/src ./src
 RUN --mount=type=cache,target=/root/.m2 mvn --batch-mode package
+FROM python:3.13-alpine@sha256:2d9aefe2fef018a7eb2c13064c89c71929800fd2e5dccdbf52ea5da5bb8d929a AS pack
+WORKDIR /build
+COPY scripts/build_pack.py scripts/build_pack.py
+COPY resource-pack/pack resource-pack/pack
+RUN python3 scripts/build_pack.py /out
 FROM ${MINECRAFT_IMAGE} AS server
+COPY --from=pack /out/vampyuyu-menus.sha1 /opt/vampyuyu-menus.sha1
 COPY --from=network-build /build/target/network-display.jar /plugins/network-display.jar
 COPY --from=arena-build /build/target/nexus-arena-engine.jar /plugins/nexus-arena-engine.jar
 FROM server AS lobby

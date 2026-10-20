@@ -31,6 +31,8 @@ x-paper-env: &paper-env
   ARENA_REDIS_HOST: redis
   ARENA_REDIS_PASSWORD_FILE: /run/secrets/arena_redis_password
   ROLE_BRIDGE_URL: http://panel:8083
+  # Public base URL clients download the optional menu resource pack from (/pack/<sha1>.zip on the panel).
+  MENU_PACK_BASE_URL: ${MENU_PACK_BASE_URL:-${PUBLIC_ORIGIN:?Set PUBLIC_ORIGIN}}
   MC_CONNECT_ADDRESS: ${MC_CONNECT_ADDRESS:-play.vampyuyu.win}
   # Paper reads the managed forwarding secret from config/paper-global.yml.
   # Explicitly configure this offline with the tools service before boot.

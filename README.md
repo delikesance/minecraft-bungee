@@ -327,3 +327,11 @@ Creative players can publish one public warp by default. `/warp` asks for a name
 `/warpadmin limit <player|uuid> <count>` persists a personal quota, including zero; lowering it preserves existing warps. OPs have `vampyuyu.warp.admin` and `vampyuyu.warp.unlimited`; these are separately delegatable permissions, independent of cosmetic roles. Data lives in `plugins/VampyuyuNetwork/warps.json`. Warps are available only on Creative outside arena participation/recovery. Destinations are checked for world availability, collisions, supporting floor, hazards and world border.
 
 `/profil` on Lobby, Creative and Survival shows the central **Shards** balance and event history outside an arena. Rewards, `/moneyadmin`, village setup and recovery are documented in [the arena guide](arena-plugin/README.md#village-immersion-and-in-game-administration-13). Deploy the panel and both plugins together after emptying arenas. Existing arena JSON remains compatible. No map construction or live deployment is automatic.
+
+## Menu resource pack (optional)
+
+`resource-pack/pack` holds an optional resource pack that paints the plugin menus (full-window backgrounds in a custom font glyph, invisible or themed item models). Vanilla chests are untouched: only titles that begin with the pack's glyph change.
+
+* Every backend offers it on join (`MENU_PACK_BASE_URL` + the SHA-1 baked into the image at `/opt/vampyuyu-menus.sha1`). Players who decline or fail to load it keep the plain glass-pane menus: the layout is chosen per player after the client reports `SUCCESSFULLY_LOADED`.
+* The panel serves the ZIP publicly, and only by content hash: `GET /pack/<sha1>.zip` (immutable, cacheable). `make pack` builds the same reproducible ZIP locally; `make art` repaints the PNGs (needs headless Chrome); `make test-pack` validates the structure.
+* Rendering inside the game client is not covered by automated tests. After changing art or fonts, open each menu once on a 1.21.9 client.

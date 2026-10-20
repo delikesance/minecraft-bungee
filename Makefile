@@ -6,7 +6,7 @@ ZIP ?=
 OUT ?=
 export COMPOSE SERVER WORLD ZIP OUT
 
-.PHONY: export-all zip-all help status up stop configure export zip import restore inspect export-panel import-panel backup test-archives
+.PHONY: export-all zip-all help status up stop configure export zip import restore inspect export-panel import-panel backup test-archives pack art test-pack
 help: ## Show operator commands
 	@python3 scripts/world_archive.py help
 status: ## Show container status
@@ -36,3 +36,9 @@ backup: ## Full network backup, including secrets; leaves the network stopped
 	@python3 scripts/world_archive.py backup
 test-archives: ## Run isolated ZIP safety and restoration tests
 	@python3 -m unittest discover -s scripts -p 'test_world_archive.py' -v
+pack: ## Build the reproducible menu resource pack and print its SHA-1
+	@python3 scripts/build_pack.py
+art: ## Repaint pack textures from resource-pack/art/render.py (needs headless Chrome)
+	@python3 resource-pack/art/render.py
+test-pack: ## Validate the menu resource pack structure and reproducibility
+	@python3 scripts/test_pack.py
