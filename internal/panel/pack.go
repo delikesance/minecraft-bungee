@@ -13,28 +13,28 @@ import (
 const maxPackBytes = 32 << 20
 
 type packCache struct {
-	once   sync.Once
+	mu     sync.Mutex
 	data   []byte
 	digest string
 }
 
-// load reads the pack once; the SHA-1 in the URL is what Minecraft clients verify and cache by.
+// loadPack reads the pack on first success; a missing file is retried so the panel can start before the ZIP exists.
 func (s *Server) loadPack() ([]byte, string) {
-	s.pack.once.Do(func() {
-		if s.PackFile == "" {
-			return
-		}
-		info, e := os.Stat(s.PackFile)
-		if e != nil || !info.Mode().IsRegular() || info.Size() > maxPackBytes {
-			return
-		}
-		b, e := os.ReadFile(s.PackFile)
-		if e != nil {
-			return
-		}
-		sum := sha1.Sum(b)
-		s.pack.data, s.pack.digest = b, hex.EncodeToString(sum[:])
-	})
+	s.pack.mu.Lock()
+	defer s.pack.mu.Unlock()
+	if s.pack.data != nil || s.PackFile == "" {
+		return s.pack.data, s.pack.digest
+	}
+	info, e := os.Stat(s.PackFile)
+	if e != nil || !info.Mode().IsRegular() || info.Size() > maxPackBytes {
+		return nil, ""
+	}
+	b, e := os.ReadFile(s.PackFile)
+	if e != nil {
+		return nil, ""
+	}
+	sum := sha1.Sum(b)
+	s.pack.data, s.pack.digest = b, hex.EncodeToString(sum[:])
 	return s.pack.data, s.pack.digest
 }
 

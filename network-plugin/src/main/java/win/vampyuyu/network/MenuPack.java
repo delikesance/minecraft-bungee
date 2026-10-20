@@ -31,10 +31,16 @@ final class MenuPack implements Listener {
     static final Key FONT = Key.key("vampyuyu", "menus");
     static final char SHIFT_BACK = '\uE000';
     static final char SHIFT_FORWARD = '\uE001';
+    static final char ROW_BACK = '\uE002';
+    static final char SEAM = '\uE003';
+    /** First tile of each background (see resource-pack/layout.py); each has COLS x rows tiles. */
     static final char LOBBY = '\uE100';
-    static final char LIST = '\uE102';
-    static final char DETAIL = '\uE103';
-    static final char CONFIRM = '\uE104';
+    static final char LIST = '\uE300';
+    static final char DETAIL = '\uE400';
+    static final char CONFIRM = '\uE500';
+    static final int COLS = 4;
+    static final int ROWS_27 = 4;
+    static final int ROWS_54 = 6;
     private static final NamespacedKey BLANK = new NamespacedKey("vampyuyu", "blank");
 
     private final JavaPlugin plugin;
@@ -89,11 +95,24 @@ final class MenuPack implements Listener {
         return base + "/pack/" + sha1 + ".zip";
     }
 
-    /** Full-window background glyph followed by the real title text, aligned to the vanilla title origin. */
-    static Component title(char glyph, Component after) {
-        return Component.text("" + SHIFT_BACK + glyph + SHIFT_FORWARD, NamedTextColor.WHITE)
-                .font(FONT)
-                .append(after);
+    /**
+     * Full-window background drawn from font tiles, then the real title text. The tiles carry the custom
+     * font on their own component; the text stays a sibling so it keeps the default font.
+     */
+    static Component title(char base, int rows, Component after) {
+        StringBuilder tiles = new StringBuilder().append(SHIFT_BACK);
+        for (int r = 0; r < rows; r++) {
+            for (int c = 0; c < COLS; c++) {
+                tiles.append((char) (base + r * COLS + c));
+                if (c < COLS - 1) tiles.append(SEAM);
+            }
+            if (r < rows - 1) tiles.append(ROW_BACK);
+        }
+        tiles.append(SHIFT_FORWARD);
+        return Component.text()
+                .append(Component.text(tiles.toString(), NamedTextColor.WHITE).font(FONT))
+                .append(after)
+                .build();
     }
 
     /** An item that draws nothing: the painted background shows through while the tooltip still works. */

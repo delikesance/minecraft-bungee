@@ -330,7 +330,7 @@ Creative players can publish one public warp by default. `/warp` asks for a name
 
 ## Menu resource pack (optional)
 
-`resource-pack/pack` holds an optional resource pack that paints the plugin menus (full-window backgrounds in a custom font glyph, invisible or themed item models). Vanilla chests are untouched: only titles that begin with the pack's glyph change.
+`resource-pack/pack` holds an optional resource pack that paints the plugin menus (full-window backgrounds drawn as 4×N font-glyph tiles of at most 176×222 px, because Minecraft stitches glyphs into 256×256 atlas pages; invisible or themed item models). Vanilla chests are untouched: only titles that begin with the pack's glyph change.
 
 * Every backend offers it on join (`MENU_PACK_BASE_URL` + the SHA-1 baked into the image at `/opt/vampyuyu-menus.sha1`). Players who decline or fail to load it keep the plain glass-pane menus: the layout is chosen per player after the client reports `SUCCESSFULLY_LOADED`.
 * The panel serves the ZIP publicly, and only by content hash: `GET /pack/<sha1>.zip` (immutable, cacheable). `make pack` builds the same reproducible ZIP locally; `make art` repaints the PNGs (needs headless Chrome); `make test-pack` validates the structure.

@@ -37,18 +37,20 @@ final class CommunityFeatures implements Listener {
   }
 
   private enum Kind {
-    LIST(MenuPack.LIST, 54),
-    DETAIL(MenuPack.DETAIL, 27),
-    CONFIRM(MenuPack.CONFIRM, 27),
+    LIST(MenuPack.LIST, 54, MenuPack.ROWS_54),
+    DETAIL(MenuPack.DETAIL, 27, MenuPack.ROWS_27),
+    CONFIRM(MenuPack.CONFIRM, 27, MenuPack.ROWS_27),
     /** Always the plain chest: no painted background exists for it. */
-    PLAIN(' ', 54);
+    PLAIN(' ', 54, 0);
 
     final char glyph;
     final int size;
+    final int rows;
 
-    Kind(char glyph, int size) {
+    Kind(char glyph, int size, int rows) {
       this.glyph = glyph;
       this.size = size;
+      this.rows = rows;
     }
   }
 
@@ -67,7 +69,7 @@ final class CommunityFeatures implements Listener {
       if (skinned) {
         inventory =
             Bukkit.createInventory(
-                this, kind.size, MenuPack.title(kind.glyph, Component.text(title, GOLD)));
+                this, kind.size, MenuPack.title(kind.glyph, kind.rows, Component.text(title, GOLD)));
       } else {
         inventory =
             Bukkit.createInventory(this, kind.size, Component.text("Vampyuyu · " + title, GOLD));

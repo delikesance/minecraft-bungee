@@ -30,12 +30,23 @@ public class MenuPackTest {
     }
 
     @Test
-    public void titleShiftsToTheWindowOriginAndBackBeforeTheRealText() {
-        Component title = MenuPack.title(MenuPack.LOBBY, Component.text("Hollow"));
-        TextComponent head = (TextComponent) title;
-        assertEquals("", head.content());
-        assertEquals(MenuPack.FONT, head.font());
-        assertEquals(1, head.children().size());
+    public void titleDrawsEveryTileOnTheCustomFontAndKeepsTheTextOnTheDefaultFont() {
+        Component title = MenuPack.title(MenuPack.LIST, MenuPack.ROWS_54, Component.text("Warps · 1"));
+        TextComponent root = (TextComponent) title;
+        assertEquals("", root.content());
+        assertNull(root.font());
+        TextComponent tiles = (TextComponent) root.children().get(0);
+        assertEquals(MenuPack.FONT, tiles.font());
+        String s = tiles.content();
+        assertEquals(MenuPack.SHIFT_BACK, s.charAt(0));
+        assertEquals(MenuPack.SHIFT_FORWARD, s.charAt(s.length() - 1));
+        long drawn = s.chars().filter(ch -> ch >= 0xE300 && ch < 0xE400).count();
+        assertEquals(MenuPack.COLS * MenuPack.ROWS_54, drawn);
+        assertEquals(MenuPack.ROWS_54 - 1, s.chars().filter(ch -> ch == MenuPack.ROW_BACK).count());
+        assertEquals((MenuPack.COLS - 1) * MenuPack.ROWS_54, s.chars().filter(ch -> ch == MenuPack.SEAM).count());
+        TextComponent text = (TextComponent) root.children().get(1);
+        assertEquals("Warps · 1", text.content());
+        assertNull("dynamic text must not inherit the glyph font", text.font());
     }
 
     @Test

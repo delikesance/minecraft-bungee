@@ -27,12 +27,18 @@ import org.bukkit.plugin.java.JavaPlugin;
  */
 final class MenuSkin implements Listener {
   static final Key FONT = Key.key("vampyuyu", "menus");
-  static final char SETUP = '';
-  static final char LIST = '';
-  static final char DETAIL = '';
-  static final char CONFIRM = '';
-  private static final String SHIFT_BACK = "";
-  private static final String SHIFT_FORWARD = "";
+  /** First tile of each background (see resource-pack/layout.py); each has COLS x rows tiles. */
+  static final char SETUP = '\uE200';
+  static final char LIST = '\uE300';
+  static final char DETAIL = '\uE400';
+  static final char CONFIRM = '\uE500';
+  static final int COLS = 4;
+  static final int ROWS_27 = 4;
+  static final int ROWS_54 = 6;
+  private static final char SHIFT_BACK = '\uE000';
+  private static final char SHIFT_FORWARD = '\uE001';
+  private static final char ROW_BACK = '\uE002';
+  private static final char SEAM = '\uE003';
 
   private final UUID id;
   private final Set<UUID> loaded = ConcurrentHashMap.newKeySet();
@@ -81,11 +87,24 @@ final class MenuSkin implements Listener {
     loaded.remove(e.getPlayer().getUniqueId());
   }
 
-  /** Painted background (own font component) followed by the dynamic title text. */
-  static Component title(char glyph, Component after) {
-    return Component.text(SHIFT_BACK + glyph + SHIFT_FORWARD, NamedTextColor.WHITE)
-        .font(FONT)
-        .append(after);
+  /**
+   * Full-window background drawn from font tiles, then the dynamic title text. The tiles carry the
+   * custom font on their own component; the text stays a sibling so it keeps the default font.
+   */
+  static Component title(char base, int rows, Component after) {
+    StringBuilder tiles = new StringBuilder().append(SHIFT_BACK);
+    for (int r = 0; r < rows; r++) {
+      for (int c = 0; c < COLS; c++) {
+        tiles.append((char) (base + r * COLS + c));
+        if (c < COLS - 1) tiles.append(SEAM);
+      }
+      if (r < rows - 1) tiles.append(ROW_BACK);
+    }
+    tiles.append(SHIFT_FORWARD);
+    return Component.text()
+        .append(Component.text(tiles.toString(), NamedTextColor.WHITE).font(FONT))
+        .append(after)
+        .build();
   }
 
   static ItemStack icon(ItemStack item, String name, boolean glow) {

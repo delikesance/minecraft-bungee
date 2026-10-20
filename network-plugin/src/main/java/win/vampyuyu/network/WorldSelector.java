@@ -72,7 +72,7 @@ final class WorldSelector implements Listener {
         Menu(boolean skinned) {
             this.skinned = skinned;
             if (skinned) {
-                inventory = Bukkit.createInventory(this, 27, MenuPack.title(MenuPack.LOBBY, Component.empty()));
+                inventory = Bukkit.createInventory(this, 27, MenuPack.title(MenuPack.LOBBY, MenuPack.ROWS_27, Component.empty()));
                 fill(CREATIVE_AREA, creativeCard());
                 fill(SURVIVAL_AREA, survivalCard());
                 fill(LOBBY_AREA, lobbyCard());

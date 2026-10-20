@@ -7,11 +7,14 @@ needs only the standard library.
 
     python3 resource-pack/art/render.py [name ...]
 """
-import os, pathlib, shutil, subprocess, sys, tempfile
+import concurrent.futures, json, os, pathlib, shutil, subprocess, sys, tempfile
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
+import layout
 
 HERE = pathlib.Path(__file__).resolve().parent
 PACK = HERE.parent / "pack" / "assets" / "vampyuyu"
-SCALE = 1.5  # 528 css px -> 792 px texture; the font provider scales it to 176 GUI px
+SCALE = layout.PX_PER_GUI / layout.CSS_PER_GUI  # css px -> texture px (4 texture px per GUI px)
 
 CHROME = next((c for c in ("google-chrome", "chromium", "chromium-browser") if shutil.which(c)), None)
 
@@ -220,11 +223,7 @@ def render_icons():
 
 ART = {"menu_lobby": lobby, "menu_setup": setup, "menu_list": listing, "menu_detail": detail, "menu_confirm": confirm}
 
-def render(name):
-    if not CHROME:
-        sys.exit("Chrome/Chromium is required to render art")
-    w, h, html = ART[name]()
-    out = PACK / "textures" / "font" / f"{name}.png"
+def _shot(html, w, h, out):
     with tempfile.TemporaryDirectory() as tmp:
         page = pathlib.Path(tmp) / "art.html"
         page.write_text(html, encoding="utf-8")
@@ -232,9 +231,40 @@ def render(name):
                         f"--force-device-scale-factor={SCALE}", f"--window-size={w},{h}",
                         "--virtual-time-budget=8000", f"--screenshot={out}", page.as_uri()],
                        check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    print("wrote", out.relative_to(HERE.parent.parent))
+
+def render(name):
+    """Cuts one background into the tiles listed in layout.BACKGROUNDS and rewrites the font."""
+    if not CHROME:
+        sys.exit("Chrome/Chromium is required to render art")
+    w, h, html = ART[name]()
+    base, gui_h, rows = layout.BACKGROUNDS[name]
+    assert (w, h) == (layout.GUI_W * layout.CSS_PER_GUI, gui_h * layout.CSS_PER_GUI), (name, w, h)
+    tile_w, tile_h = layout.TILE_W * layout.CSS_PER_GUI, layout.tile_height(gui_h, rows) * layout.CSS_PER_GUI
+    outdir = PACK / "textures" / "font"
+    outdir.mkdir(parents=True, exist_ok=True)
+    jobs = []
+    for r in range(rows):
+        for c in range(layout.COLS):
+            shift = f'<style>body{{margin:0;transform:translate({-c * tile_w}px,{-r * tile_h}px);transform-origin:0 0}}html{{overflow:hidden}}</style></head>'
+            jobs.append((html.replace("</head>", shift, 1), tile_w, tile_h, outdir / f"{layout.tile_file(name, r, c)}.png"))
+    with concurrent.futures.ThreadPoolExecutor(4) as pool:
+        list(pool.map(lambda j: _shot(*j), jobs))
+    print("wrote", len(jobs), "tiles for", name)
+
+def write_font():
+    providers = [{"type": "space", "advances": {chr(k): v for k, v in layout.ADVANCES.items()}}]
+    for name, (base, gui_h, rows) in layout.BACKGROUNDS.items():
+        th = layout.tile_height(gui_h, rows)
+        for r in range(rows):
+            for c in range(layout.COLS):
+                providers.append({"type": "bitmap", "file": f"vampyuyu:font/{layout.tile_file(name, r, c)}.png",
+                                  "ascent": layout.ASCENT - r * th, "height": th, "chars": [chr(base + r * layout.COLS + c)]})
+    (PACK / "font").mkdir(parents=True, exist_ok=True)
+    (PACK / "font" / "menus.json").write_text(json.dumps({"providers": providers}, indent=1) + "\n")
+    print("wrote font with", len(providers) - 1, "tiles")
 
 if __name__ == "__main__":
     wanted = sys.argv[1:] or [*ART, "icons"]
     for n in wanted:
         render_icons() if n == "icons" else render(n)
+    write_font()

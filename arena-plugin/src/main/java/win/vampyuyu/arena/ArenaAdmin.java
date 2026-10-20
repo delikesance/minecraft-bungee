@@ -32,17 +32,19 @@ final class ArenaAdmin implements Listener {
   private static final TextColor GOLD = TextColor.color(0xe9d99b);
 
   private enum Kind {
-    SETUP(MenuSkin.SETUP, 54),
-    LIST(MenuSkin.LIST, 54),
-    DETAIL(MenuSkin.DETAIL, 27),
-    CONFIRM(MenuSkin.CONFIRM, 27);
+    SETUP(MenuSkin.SETUP, 54, MenuSkin.ROWS_54),
+    LIST(MenuSkin.LIST, 54, MenuSkin.ROWS_54),
+    DETAIL(MenuSkin.DETAIL, 27, MenuSkin.ROWS_27),
+    CONFIRM(MenuSkin.CONFIRM, 27, MenuSkin.ROWS_27);
 
     final char glyph;
     final int size;
+    final int rows;
 
-    Kind(char glyph, int size) {
+    Kind(char glyph, int size, int rows) {
       this.glyph = glyph;
       this.size = size;
+      this.rows = rows;
     }
   }
 
@@ -58,7 +60,7 @@ final class ArenaAdmin implements Listener {
       skinned = plugin.skin != null && plugin.skin.active(p);
       if (skinned) {
         inventory =
-            Bukkit.createInventory(this, kind.size, MenuSkin.title(kind.glyph, Component.text(title, GOLD)));
+            Bukkit.createInventory(this, kind.size, MenuSkin.title(kind.glyph, kind.rows, Component.text(title, GOLD)));
       } else {
         inventory = Bukkit.createInventory(this, kind.size, Component.text("Vampyuyu · " + title, GOLD));
         for (int i = 0; i < kind.size; i++)

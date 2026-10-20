@@ -22,11 +22,17 @@ public class MenuSkinTest {
   }
 
   @Test
-  public void titleStartsWithTheShiftedWhiteGlyphThenTheDynamicName() {
-    var title = (TextComponent) MenuSkin.title(MenuSkin.SETUP, Component.text("Hollow"));
-    assertEquals("", title.content());
-    assertEquals(MenuSkin.FONT, title.font());
-    assertEquals(1, title.children().size());
+  public void titleDrawsEveryTileOnTheCustomFontAndKeepsTheTextOnTheDefaultFont() {
+    var root = (TextComponent) MenuSkin.title(MenuSkin.SETUP, MenuSkin.ROWS_54, Component.text("Hollow"));
+    assertEquals("", root.content());
+    assertNull(root.font());
+    var tiles = (TextComponent) root.children().get(0);
+    assertEquals(MenuSkin.FONT, tiles.font());
+    long drawn = tiles.content().chars().filter(ch -> ch >= 0xE200 && ch < 0xE300).count();
+    assertEquals(MenuSkin.COLS * MenuSkin.ROWS_54, drawn);
+    var text = (TextComponent) root.children().get(1);
+    assertEquals("Hollow", text.content());
+    assertNull("dynamic text must not inherit the glyph font", text.font());
   }
 
   @Test

@@ -5,7 +5,9 @@ import hashlib, json, pathlib, struct, sys, tempfile, unittest
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 PACK = ROOT / "resource-pack" / "pack"
 sys.path.insert(0, str(ROOT / "scripts"))
+sys.path.insert(0, str(ROOT / "resource-pack"))
 import build_pack  # noqa: E402
+import layout  # noqa: E402
 
 def png_size(path):
     data = path.read_bytes()
@@ -18,28 +20,39 @@ class PackTest(unittest.TestCase):
         self.assertEqual((meta["min_format"], meta["max_format"]), (69, 69))
         self.assertTrue(meta["description"])
 
-    def test_font_providers_reference_real_textures(self):
+    def test_font_tiles_fit_the_glyph_atlas_and_tile_each_window_exactly(self):
         font = json.loads((PACK / "assets/vampyuyu/font/menus.json").read_text())
-        glyphs = set()
+        advances = next(p for p in font["providers"] if p["type"] == "space")["advances"]
+        self.assertEqual({ord(k): v for k, v in advances.items()}, layout.ADVANCES)
+        self.assertEqual(layout.ADVANCES[layout.SHIFT_BACK], -8, "title origin is x=8")
+        self.assertEqual(layout.ADVANCES[layout.SHIFT_FORWARD], -(176 + 1 - 44), "dynamic text starts at x=44")
+        # each bitmap glyph advances width+1; SEAM cancels it between tiles and ROW_BACK rewinds a row
+        row_width = layout.COLS * (layout.TILE_W + 1) + (layout.COLS - 1) * layout.ADVANCES[layout.SEAM]
+        self.assertEqual(row_width, -layout.ADVANCES[layout.ROW_BACK])
+        tiles = {}
         for provider in font["providers"]:
-            if provider["type"] == "space":
-                self.assertEqual(provider["advances"]["\ue000"], -8, "title origin is x=8")
+            if provider["type"] != "bitmap":
                 continue
-            self.assertEqual(provider["type"], "bitmap")
             namespace, _, rel = provider["file"].partition(":")
             texture = PACK / "assets" / namespace / "textures" / rel
             self.assertTrue(texture.is_file(), texture)
             width, height = png_size(texture)
-            self.assertIn(provider["height"], (168, 222), "27- or 54-slot window")
-            self.assertEqual(len(provider["chars"]), 1, "one glyph per background")
-            self.assertEqual(provider["ascent"], 13, "texture top must sit on the window top")
-            # The glyph is scaled so its height becomes `height`; the width must then be exactly 176 GUI px.
-            self.assertAlmostEqual(width * provider["height"] / height, 176, delta=0.6)
-            glyphs.update(provider["chars"])
-        advances = next(p for p in font["providers"] if p["type"] == "space")["advances"]
-        self.assertEqual(advances["\ue001"], -(176 + 1 - 44), "dynamic title text starts at x=44, after the painted brand")
-        for glyph in "\ue100\ue101\ue102\ue103\ue104":
-            self.assertIn(glyph, glyphs)
+            # Minecraft stitches font glyphs into 256x256 pages: a larger glyph renders as missing.
+            self.assertLessEqual(max(width, height), 256, texture.name)
+            self.assertEqual(width, layout.TILE_W * layout.PX_PER_GUI, "tile is exactly 44 GUI px wide")
+            self.assertEqual(height, provider["height"] * layout.PX_PER_GUI, "texture px match the GUI scale")
+            self.assertEqual(len(provider["chars"]), 1)
+            tiles[ord(provider["chars"][0])] = provider
+        for name, (base, gui_h, rows) in layout.BACKGROUNDS.items():
+            th = layout.tile_height(gui_h, rows)
+            for r in range(rows):
+                for c in range(layout.COLS):
+                    provider = tiles[base + r * layout.COLS + c]
+                    self.assertEqual(provider["height"], th)
+                    self.assertEqual(provider["ascent"], layout.ASCENT - r * th, "row r sits r tile-heights below the top")
+                    self.assertEqual(provider["file"], f"vampyuyu:font/{layout.tile_file(name, r, c)}.png")
+            self.assertEqual(rows * th, gui_h)
+        self.assertEqual(len(tiles), sum(r * layout.COLS for _, _, r in layout.BACKGROUNDS.values()))
 
     def test_every_icon_has_texture_model_and_definition(self):
         icons = sorted(p.stem for p in (PACK / "assets/vampyuyu/textures/item/icon").glob("*.png"))
