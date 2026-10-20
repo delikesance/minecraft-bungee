@@ -258,6 +258,12 @@ All mutations require the configured `Origin`; authenticated mutations also requ
 
 Console SSE refreshes a bounded snapshot every two seconds, containing up to 200 lines with at most 8 KiB per line. Heartbeats keep idle streams alive. Reconnection replaces the snapshot to avoid duplicate appended lines. This is an operational tail, not a durable lossless log feed; bursts exceeding 200 lines require the server's persistent logs. Console output is rendered as React text, never HTML. The controller redacts its known secrets from returned logs and command responses. Other plugin-specific secrets may still be emitted by plugins; access is administrator-only.
 
+## World ZIP toolbox
+
+Use `make help` for the operator commands. `make zip SERVER=creative` exports a portable ZIP; `make restore SERVER=creative ZIP=/path/to/export.zip` validates, backs up the target and restores it. `make zip-all` creates Lobby, Creative, Survival and panel ZIPs. Set `COMPOSE=compose.prod.yaml` on the production host. Conventional single-world Minecraft ZIPs are supported too. Each service retains its previous running/stopped state.
+
+See [portable worlds and deployment](docs/world-archives.md) for exactly what is included, raw world ZIPs, claims, the separate panel database, secret handling, rollback and first production installation. For a complete network snapshot including Redis and secrets, `make backup` retains the existing full-network backup workflow and leaves the stack stopped.
+
 ## Validation
 
 ```bash

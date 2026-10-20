@@ -15,6 +15,7 @@ jobs:
           go-version-file: go.mod
       - run: go test ./...
       - run: go vet ./...
+      - run: make test-archives
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
