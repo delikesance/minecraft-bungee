@@ -58,12 +58,12 @@ final class ArenaAdmin implements Listener {
     Bukkit.getPluginManager().registerEvents(this, plugin);
   }
 
-  private void authorize(Player p) {
+  void authorize(Player p) {
     if (!p.hasPermission("nexusarena.admin") || plugin.arenas.locked(p.getUniqueId()))
       throw new IllegalArgumentException("Administrator access outside an arena required");
   }
 
-  private ArenaSession editable(String id) {
+  ArenaSession editable(String id) {
     ArenaSession s = plugin.arenas.require(id);
     if (!s.players.isEmpty()
         || s.game != null
@@ -74,7 +74,7 @@ final class ArenaAdmin implements Listener {
     return s;
   }
 
-  private void change(String id, java.util.function.Consumer<JsonObject> edit) throws Exception {
+  void change(String id, java.util.function.Consumer<JsonObject> edit) throws Exception {
     synchronized (plugin.arenas) {
       JsonObject json = ArenaManager.JSON.toJsonTree(editable(id).config).getAsJsonObject();
       edit.accept(json);
@@ -82,7 +82,7 @@ final class ArenaAdmin implements Listener {
     }
   }
 
-  private ArenaConfig.Spawn point(Player p, String id) {
+  ArenaConfig.Spawn point(Player p, String id) {
     ArenaConfig c = editable(id).config;
     Location l = p.getLocation();
     if (!l.getWorld().getName().equals(c.worldName()))
@@ -101,13 +101,16 @@ final class ArenaAdmin implements Listener {
             "houses",
             "meeting",
             "daypoint",
-            "doors")
+            "doors",
+            "tools",
+            "select")
         .contains(sub)) return false;
     if (!(sender instanceof Player p))
       throw new IllegalArgumentException("Use this command in game");
     authorize(p);
     switch (sub) {
       case "admin" -> list(p, 0);
+      case "tools", "select" -> plugin.tools.command(p, sub, args);
       case "corner1", "corner2" -> {
         capture(p, sub.equals("corner1") ? 0 : 1);
         plugin.message(p, "Corner recorded");
@@ -165,12 +168,20 @@ final class ArenaAdmin implements Listener {
     return true;
   }
 
-  private void capture(Player p, int index) {
-    Location[] selected = corners.computeIfAbsent(p.getUniqueId(), key -> new Location[2]);
-    selected[index] = p.getLocation().clone();
+  void capture(Player p, int index) {
+    capture(p, index, p.getLocation());
   }
 
-  private ArenaConfig.Bounds bounds(Player p) {
+  void capture(Player p, int index, Location where) {
+    Location[] selected = corners.computeIfAbsent(p.getUniqueId(), key -> new Location[2]);
+    selected[index] = where.clone();
+  }
+
+  Location[] corners(Player p) {
+    return corners.get(p.getUniqueId());
+  }
+
+  ArenaConfig.Bounds bounds(Player p) {
     var points = corners.get(p.getUniqueId());
     if (points == null || points[0] == null || points[1] == null)
       throw new IllegalArgumentException("Select /arena corner1 and /arena corner2 first");
@@ -226,7 +237,7 @@ final class ArenaAdmin implements Listener {
         () -> list(p, 0));
   }
 
-  private void list(Player p, int page) {
+  void list(Player p, int page) {
     var arenas =
         plugin.arenas.all().stream().sorted(Comparator.comparing(s -> s.config.id())).toList();
     Menu m = new Menu(p, "Arenas");
@@ -275,7 +286,7 @@ final class ArenaAdmin implements Listener {
     p.openInventory(m.inventory);
   }
 
-  private void setup(Player p, String id) {
+  void setup(Player p, String id) {
     var c = plugin.arenas.require(id).config;
     Menu m = new Menu(p, c.name());
     m.put(
@@ -315,8 +326,10 @@ final class ArenaAdmin implements Listener {
         () -> {
           change(
               id, j -> j.getAsJsonObject("village").addProperty("enabled", !c.village().enabled()));
+          plugin.tools.report(p, id);
           setup(p, id);
-        });
+        },
+        "Click to toggle; the checklist shows what is missing");
     m.put(
         14,
         Material.RED_BED,
@@ -431,11 +444,28 @@ final class ArenaAdmin implements Listener {
                   list(p, 0);
                 },
                 () -> setup(p, id)));
+    m.put(
+        46,
+        Material.GOLDEN_AXE,
+        "Get admin tools",
+        () -> {
+          p.closeInventory();
+          plugin.tools.give(p, id);
+        },
+        "Items for corners, spawn, houses, points and doors");
+    m.put(
+        47,
+        Material.WRITABLE_BOOK,
+        "Readiness checklist",
+        () -> {
+          p.closeInventory();
+          plugin.tools.report(p, id);
+        });
     m.put(49, Material.ARROW, "Back", () -> list(p, 0));
     p.openInventory(m.inventory);
   }
 
-  private void setPoint(Player p, String id, String field) throws Exception {
+  void setPoint(Player p, String id, String field) throws Exception {
     var position = point(p, id);
     change(
         id, j -> j.getAsJsonObject("village").add(field, ArenaManager.JSON.toJsonTree(position)));

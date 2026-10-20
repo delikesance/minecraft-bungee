@@ -57,12 +57,9 @@ final class VillageController {
     if (!village.enabled()) return CompletableFuture.completedFuture(null);
     if (pending(s.config.id()))
       return CompletableFuture.failedFuture(new IllegalArgumentException("Door recovery pending"));
-    if (village.houses().size() < s.players.size()
-        || village.meeting() == null
-        || village.daypoint() == null)
-      return CompletableFuture.failedFuture(
-          new IllegalArgumentException(
-              "Configure a distinct house per participant, meeting and day points"));
+    String missing = village.missing(s.players.size());
+    if (missing != null)
+      return CompletableFuture.failedFuture(new IllegalArgumentException(missing));
     World w = Bukkit.getWorld(s.config.worldName());
     if (w == null)
       return CompletableFuture.failedFuture(new IllegalArgumentException("World unavailable"));

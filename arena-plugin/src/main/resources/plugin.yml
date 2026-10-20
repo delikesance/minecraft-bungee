@@ -11,7 +11,7 @@ commands:
     permission: nexusarena.admin
   arena:
     description: Join, leave or manage a network arena
-    usage: /arena <list|join|leave|status|admin|create|setup|corner1|corner2|house|houses|meeting|daypoint|doors|start|stop|announce|reload>
+    usage: /arena <list|join|leave|status|admin|tools|select|create|setup|corner1|corner2|house|houses|meeting|daypoint|doors|start|stop|announce|reload>
 permissions:
   nexusarena.admin:
     default: op

@@ -47,8 +47,19 @@ public record ArenaConfig(
     }
 
     public void requireCapacity(int players) {
-      if (enabled && (houses.size() < players || meeting == null || daypoint == null))
-        throw new IllegalArgumentException("Configure enough houses, meeting and day points");
+      String missing = missing(players);
+      if (enabled && missing != null) throw new IllegalArgumentException(missing);
+    }
+
+    /** Human-readable list of what village mode still lacks, or null when ready. */
+    public String missing(int players) {
+      List<String> lacks = new ArrayList<>();
+      if (houses.size() < players)
+        lacks.add(
+            "houses: " + houses.size() + "/" + players + " (one per player, bots included)");
+      if (meeting == null) lacks.add("wolf meeting point");
+      if (daypoint == null) lacks.add("day point");
+      return lacks.isEmpty() ? null : "Village mode is missing " + String.join(", ", lacks);
     }
 
     public static Village defaults() {

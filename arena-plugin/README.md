@@ -112,6 +112,23 @@ The wolves gather at their turn's beginning. **The last living wolf's vote close
 | `/arena doors <id>` | Register the targeted door or remove a registration |
 | `/eventadmin rewards <id> <participation> <victory>` | Set rewards; each amount must be 0–100,000 |
 
+### Admin tools in your inventory (1.5)
+
+`/arena tools [id]` gives hotbar items (tagged, undroppable, removed on quit or with `/arena tools off`); the setup menu has a **Get admin tools** button. `/arena select <id>` picks the arena they act on (automatic when only one exists). Every action answers in chat and the action bar; holding a tool shows spawn, houses, meeting/day points, doors and bounds as particles.
+
+| Item | Right-click | Left-click / sneak |
+| --- | --- | --- |
+| Arena selector (map) | next arena | previous arena |
+| Bounds wand (golden axe) | block = corner 2 | block = corner 1; sneak + right = apply to the arena (+5 blocks headroom) |
+| Arena spawn (compass) | set spawn here | — |
+| Village houses (bed) | add `maison-N` here | left: remove nearest (3 blocks); sneak + right: move it |
+| Wolf meeting point (bone), Day point (sunflower) | set here | — |
+| Controlled doors (iron door) | register/unregister the door | — |
+| Village mode (lever) | toggle village mode | sneak + right: toggle ambience |
+| Readiness checklist (book) | ✔/✘ list of what is missing | sneak + right: open setup menu |
+
+Village mode needs **at least `minPlayers` houses** (one per player at start, practice bots included), a wolf meeting point and a day point; the checklist and the start error now state exactly what is missing (e.g. `houses: 2/4`).
+
 These commands require `nexusarena.admin` (OP by default). Select corners with sufficient vertical clearance and stand inside the box when setting spawn/points. House names use 1–32 ASCII letters, digits, `_` or `-`. Edits are refused while occupied or restoring.
 
 Existing arenas load with village mode disabled. Configure safe houses, a meeting point and a day point, then enable village mode in Setup. A distinct house is required per participant, including practice bots. Assignments are shuffled once per game. Players sleep at home, wolves gather during their hunt, and living players reach the day point at dawn. Sleeping movement is blocked.

@@ -16,6 +16,7 @@ public final class NexusArenaEngine extends JavaPlugin {
   WerewolfAmbience ambience;
   VillageController village;
   ArenaAdmin admin;
+  ArenaTools tools;
   EventRewards rewards;
   RedisManager redis;
   CrossServerBridge bridge;
@@ -62,6 +63,7 @@ public final class NexusArenaEngine extends JavaPlugin {
       village = new VillageController(this);
       village.recover();
       admin = new ArenaAdmin(this);
+      tools = new ArenaTools(this);
       bridge = new CrossServerBridge(this);
       getServer().getPluginManager().registerEvents(gui, this);
       getServer().getPluginManager().registerEvents(new ArenaProtectionListener(this), this);
@@ -91,8 +93,12 @@ public final class NexusArenaEngine extends JavaPlugin {
           .setTabCompleter(
               (sender, cmd, alias, args) ->
                   args.length == 1
-                      ? List.of("list", "join", "leave", "status")
-                      : args.length == 2 && args[0].equals("join")
+                      ? List.of(
+                          "list", "join", "leave", "status", "tools", "select", "admin", "create",
+                          "setup", "start", "stop", "reload")
+                      : args.length == 2
+                              && List.of("join", "select", "tools", "setup", "start", "stop")
+                                  .contains(args[0])
                           ? arenas.all().stream().map(s -> s.config.id()).toList()
                           : List.of());
       clock.scheduleAtFixedRate(
