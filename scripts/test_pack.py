@@ -30,16 +30,25 @@ class PackTest(unittest.TestCase):
             texture = PACK / "assets" / namespace / "textures" / rel
             self.assertTrue(texture.is_file(), texture)
             width, height = png_size(texture)
-            self.assertEqual(provider["chars"], ["\ue100"] if "lobby" in rel else provider["chars"])
+            self.assertIn(provider["height"], (168, 222), "27- or 54-slot window")
             self.assertEqual(len(provider["chars"]), 1, "one glyph per background")
             self.assertEqual(provider["ascent"], 13, "texture top must sit on the window top")
             # The glyph is scaled so its height becomes `height`; the width must then be exactly 176 GUI px.
             self.assertAlmostEqual(width * provider["height"] / height, 176, delta=0.6)
             glyphs.update(provider["chars"])
-        shift_forward = -(176 + 1 - 21)
         advances = next(p for p in font["providers"] if p["type"] == "space")["advances"]
-        self.assertEqual(advances["\ue001"], shift_forward, "cursor returns to x=21 after the glyph")
-        self.assertIn("\ue100", glyphs)
+        self.assertEqual(advances["\ue001"], -(176 + 1 - 44), "dynamic title text starts at x=44, after the painted brand")
+        for glyph in "\ue100\ue101\ue102\ue103\ue104":
+            self.assertIn(glyph, glyphs)
+
+    def test_every_icon_has_texture_model_and_definition(self):
+        icons = sorted(p.stem for p in (PACK / "assets/vampyuyu/textures/item/icon").glob("*.png"))
+        self.assertGreaterEqual(len(icons), 20)
+        for name in icons:
+            definition = json.loads((PACK / f"assets/vampyuyu/items/icon/{name}.json").read_text())
+            self.assertEqual(definition["model"]["model"], f"vampyuyu:item/icon/{name}")
+            model = json.loads((PACK / f"assets/vampyuyu/models/item/icon/{name}.json").read_text())
+            self.assertEqual(model["textures"]["layer0"], f"vampyuyu:item/icon/{name}")
 
     def test_invisible_item_model_chain(self):
         item = json.loads((PACK / "assets/vampyuyu/items/blank.json").read_text())

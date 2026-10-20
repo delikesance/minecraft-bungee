@@ -29,9 +29,12 @@ import org.bukkit.plugin.java.JavaPlugin;
 final class MenuPack implements Listener {
     /** Font that carries the full-window menu backgrounds (see resource-pack/pack). */
     static final Key FONT = Key.key("vampyuyu", "menus");
-    static final char SHIFT_BACK = '';
-    static final char SHIFT_FORWARD = '';
-    static final char LOBBY = '';
+    static final char SHIFT_BACK = '\uE000';
+    static final char SHIFT_FORWARD = '\uE001';
+    static final char LOBBY = '\uE100';
+    static final char LIST = '\uE102';
+    static final char DETAIL = '\uE103';
+    static final char CONFIRM = '\uE104';
     private static final NamespacedKey BLANK = new NamespacedKey("vampyuyu", "blank");
 
     private final JavaPlugin plugin;
@@ -99,6 +102,29 @@ final class MenuPack implements Listener {
         meta.setItemModel(BLANK);
         item.setItemMeta(meta);
         return item;
+    }
+
+    /** Themed icon item model (vampyuyu:icon/<name>); glow marks a switched-on option. */
+    static ItemStack icon(ItemStack item, String name, boolean glow) {
+        ItemMeta meta = item.getItemMeta();
+        meta.setItemModel(new NamespacedKey("vampyuyu", "icon/" + name));
+        if (glow) meta.setEnchantmentGlintOverride(true);
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    static String iconFor(org.bukkit.Material material, String title) {
+        String t = title.toLowerCase(java.util.Locale.ROOT);
+        return switch (material) {
+            case ENDER_PEARL -> "pearl";
+            case WRITABLE_BOOK, BOOK -> "pencil";
+            case BARRIER -> "trash";
+            case RED_WOOL -> "trash";
+            case EMERALD -> "plus";
+            case SUNFLOWER -> "coin";
+            case ARROW -> t.startsWith("next") ? "next" : "back";
+            default -> "tag";
+        };
     }
 
     boolean active(Player player) {

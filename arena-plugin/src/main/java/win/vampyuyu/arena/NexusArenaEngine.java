@@ -17,6 +17,7 @@ public final class NexusArenaEngine extends JavaPlugin {
   VillageController village;
   ArenaAdmin admin;
   ArenaTools tools;
+  MenuSkin skin;
   EventRewards rewards;
   RedisManager redis;
   CrossServerBridge bridge;
@@ -63,6 +64,7 @@ public final class NexusArenaEngine extends JavaPlugin {
       village = new VillageController(this);
       village.recover();
       admin = new ArenaAdmin(this);
+      skin = MenuSkin.load(this);
       tools = new ArenaTools(this);
       bridge = new CrossServerBridge(this);
       getServer().getPluginManager().registerEvents(gui, this);

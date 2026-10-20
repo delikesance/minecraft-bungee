@@ -31,16 +31,39 @@ final class ArenaAdmin implements Listener {
 
   private static final TextColor GOLD = TextColor.color(0xe9d99b);
 
-  private static final class Menu implements InventoryHolder {
+  private enum Kind {
+    SETUP(MenuSkin.SETUP, 54),
+    LIST(MenuSkin.LIST, 54),
+    DETAIL(MenuSkin.DETAIL, 27),
+    CONFIRM(MenuSkin.CONFIRM, 27);
+
+    final char glyph;
+    final int size;
+
+    Kind(char glyph, int size) {
+      this.glyph = glyph;
+      this.size = size;
+    }
+  }
+
+  /** Painted menu when the viewer loaded the resource pack, glass-pane chest otherwise. */
+  private final class Menu implements InventoryHolder {
     final UUID viewer;
     final Inventory inventory;
+    final boolean skinned;
     final Map<Integer, Action> actions = new HashMap<>();
 
-    Menu(Player p, String title) {
+    Menu(Player p, Kind kind, String title) {
       viewer = p.getUniqueId();
-      inventory = Bukkit.createInventory(this, 54, Component.text("Vampyuyu · " + title, GOLD));
-      for (int i = 0; i < 54; i++)
-        inventory.setItem(i, CompassGUI.item(Material.RED_STAINED_GLASS_PANE, " "));
+      skinned = plugin.skin != null && plugin.skin.active(p);
+      if (skinned) {
+        inventory =
+            Bukkit.createInventory(this, kind.size, MenuSkin.title(kind.glyph, Component.text(title, GOLD)));
+      } else {
+        inventory = Bukkit.createInventory(this, kind.size, Component.text("Vampyuyu · " + title, GOLD));
+        for (int i = 0; i < kind.size; i++)
+          inventory.setItem(i, CompassGUI.item(Material.RED_STAINED_GLASS_PANE, " "));
+      }
     }
 
     public Inventory getInventory() {
@@ -48,7 +71,27 @@ final class ArenaAdmin implements Listener {
     }
 
     void put(int slot, Material mat, String title, Action action, String... lore) {
-      inventory.setItem(slot, CompassGUI.item(mat, title, lore));
+      place(slot, mat, null, false, title, action, lore);
+    }
+
+    /** A switch: the item glows when on, and the state is always in the tooltip. */
+    void toggle(int slot, Material mat, String title, boolean on, Action action, String... lore) {
+      String[] all = new String[lore.length + 1];
+      all[0] = on ? "State: ON" : "State: OFF";
+      System.arraycopy(lore, 0, all, 1, lore.length);
+      place(slot, mat, null, on, title, action, all);
+    }
+
+    /** One action over several slots, so a painted button is clickable on its whole surface. */
+    void area(int[] slots, Material mat, String icon, String title, Action action, String... lore) {
+      for (int slot : slots) place(slot, mat, icon, false, title, action, lore);
+    }
+
+    void place(
+        int slot, Material mat, String icon, boolean glow, String title, Action action, String... lore) {
+      ItemStack item = CompassGUI.item(mat, title, lore);
+      if (skinned) MenuSkin.icon(item, icon != null ? icon : MenuSkin.iconFor(mat, title), glow);
+      inventory.setItem(slot, item);
       if (action != null) actions.put(slot, action);
     }
   }
@@ -240,7 +283,7 @@ final class ArenaAdmin implements Listener {
   void list(Player p, int page) {
     var arenas =
         plugin.arenas.all().stream().sorted(Comparator.comparing(s -> s.config.id())).toList();
-    Menu m = new Menu(p, "Arenas");
+    Menu m = new Menu(p, Kind.LIST, "Arenas");
     for (int i = page * 36; i < Math.min(arenas.size(), (page + 1) * 36); i++) {
       var s = arenas.get(i);
       m.put(
@@ -251,35 +294,40 @@ final class ArenaAdmin implements Listener {
           s.config.id() + " · " + s.phase());
     }
     paging(m, page, arenas.size(), n -> list(p, n));
-    m.put(
+    m.place(
         46,
         Material.LIME_WOOL,
+        "ruler",
+        false,
         "Set first corner here",
         () -> {
           capture(p, 0);
           list(p, page);
         });
-    m.put(
+    m.place(
         47,
         Material.LIME_WOOL,
+        "ruler",
+        false,
         "Set second corner here",
         () -> {
           capture(p, 1);
           list(p, page);
         });
-    m.put(
-        49,
+    m.area(
+        new int[] {48, 49, 50},
         Material.EMERALD,
+        "plus",
         "Create arena",
         () ->
             prompt(
                 p,
                 "New arena ID:",
                 id -> {
-                  Menu choice = new Menu(p, "Choose preset");
-                  choice.put(20, Material.BONE, "Werewolf", () -> create(p, id, "werewolf"));
+                  Menu choice = new Menu(p, Kind.DETAIL, "Choose preset");
+                  choice.put(11, Material.BONE, "Werewolf", () -> create(p, id, "werewolf"));
                   choice.put(
-                      24, Material.GRASS_BLOCK, "Free play", () -> create(p, id, "freeplay"));
+                      15, Material.GRASS_BLOCK, "Free play", () -> create(p, id, "freeplay"));
                   p.openInventory(choice.inventory);
                 }),
         "Select both corners, then stand at the spawn");
@@ -288,9 +336,10 @@ final class ArenaAdmin implements Listener {
 
   void setup(Player p, String id) {
     var c = plugin.arenas.require(id).config;
-    Menu m = new Menu(p, c.name());
+    Menu m = new Menu(p, Kind.SETUP, c.name());
+    // Row 0: the arena itself and its life cycle.
     m.put(
-        10,
+        1,
         Material.WRITABLE_BOOK,
         "Name: " + c.name(),
         () ->
@@ -302,7 +351,7 @@ final class ArenaAdmin implements Listener {
                   setup(p, id);
                 }));
     m.put(
-        11,
+        2,
         Material.COMPASS,
         "Set spawn here",
         () -> {
@@ -311,7 +360,7 @@ final class ArenaAdmin implements Listener {
           setup(p, id);
         });
     m.put(
-        12,
+        3,
         Material.MAP,
         "Use selected bounds",
         () -> {
@@ -320,9 +369,37 @@ final class ArenaAdmin implements Listener {
           setup(p, id);
         });
     m.put(
-        13,
+        5,
+        Material.GOLDEN_AXE,
+        "Get admin tools",
+        () -> {
+          p.closeInventory();
+          plugin.tools.give(p, id);
+        },
+        "Items for corners, spawn, houses, points and doors");
+    m.put(
+        6,
+        Material.WRITABLE_BOOK,
+        "Readiness checklist",
+        () -> {
+          p.closeInventory();
+          plugin.tools.report(p, id);
+        });
+    m.put(
+        7,
+        Material.LIME_WOOL,
+        "Start",
+        () -> {
+          plugin.arenas.start(id);
+          p.closeInventory();
+        });
+    m.put(8, Material.RED_WOOL, "Stop & restore", () -> plugin.handle(p, plugin.arenas.stop(id)));
+    // Row 1: village.
+    m.toggle(
+        10,
         Material.OAK_DOOR,
-        "Village: " + c.village().enabled(),
+        "Village",
+        c.village().enabled(),
         () -> {
           change(
               id, j -> j.getAsJsonObject("village").addProperty("enabled", !c.village().enabled()));
@@ -331,12 +408,12 @@ final class ArenaAdmin implements Listener {
         },
         "Click to toggle; the checklist shows what is missing");
     m.put(
-        14,
+        11,
         Material.RED_BED,
         "Houses (" + c.village().houses().size() + ")",
         () -> houses(p, id, 0));
     m.put(
-        15,
+        12,
         Material.BONE,
         "Set wolf meeting here",
         () -> {
@@ -344,14 +421,31 @@ final class ArenaAdmin implements Listener {
           setup(p, id);
         });
     m.put(
-        16,
+        13,
         Material.SUNFLOWER,
         "Set day point here",
         () -> {
           setPoint(p, id, "daypoint");
           setup(p, id);
         });
-    m.put(19, Material.IRON_DOOR, "Controlled doors", () -> doors(p, id, 0));
+    m.put(14, Material.IRON_DOOR, "Controlled doors", () -> doors(p, id, 0));
+    if (c.preset().equals("werewolf"))
+      m.toggle(
+          15,
+          Material.NOTE_BLOCK,
+          "Immersive ambience",
+          c.werewolf().ambienceEnabled(),
+          () -> {
+            change(
+                id,
+                j ->
+                    j.getAsJsonObject("werewolf")
+                        .addProperty("ambienceEnabled", !c.werewolf().ambienceEnabled()));
+            setup(p, id);
+          },
+          "Native sounds and titles",
+          "Private instructions remain available when disabled");
+    // Row 2: limits.
     String[] numbers = {
       "minPlayers",
       "maxPlayers",
@@ -360,12 +454,20 @@ final class ArenaAdmin implements Listener {
       "voteSeconds",
       "nightSeconds"
     };
+    int[] values = {
+      c.minPlayers(),
+      c.maxPlayers(),
+      c.durationSeconds(),
+      c.discussionSeconds(),
+      c.voteSeconds(),
+      c.nightSeconds()
+    };
     for (int i = 0; i < numbers.length; i++) {
       String key = numbers[i];
       m.put(
-          20 + i,
+          19 + i,
           Material.CLOCK,
-          key,
+          key + ": " + values[i],
           () ->
               prompt(
                   p,
@@ -374,15 +476,19 @@ final class ArenaAdmin implements Listener {
                     int n = Integer.parseInt(value);
                     change(id, j -> j.addProperty(key, n));
                     setup(p, id);
-                  }));
+                  }),
+          "Click to change");
     }
+    // Row 3: rules and rewards.
     String[] toggles = {"allowPvP", "allowChests", "allowDoors"};
+    boolean[] states = {c.allowPvP(), c.allowChests(), c.allowDoors()};
     for (int i = 0; i < toggles.length; i++) {
       String key = toggles[i];
-      m.put(
+      m.toggle(
           28 + i,
           Material.LEVER,
           key,
+          states[i],
           () -> {
             change(id, j -> j.addProperty(key, !j.get(key).getAsBoolean()));
             setup(p, id);
@@ -407,31 +513,7 @@ final class ArenaAdmin implements Listener {
                 }),
         c.rewards().participation() + " participation + " + c.rewards().victory() + " victory");
     m.put(
-        37,
-        Material.LIME_WOOL,
-        "Start",
-        () -> {
-          plugin.arenas.start(id);
-          p.closeInventory();
-        });
-    if (c.preset().equals("werewolf"))
-      m.put(
-          32,
-          Material.NOTE_BLOCK,
-          "Immersive ambience: " + c.werewolf().ambienceEnabled(),
-          () -> {
-            change(
-                id,
-                j ->
-                    j.getAsJsonObject("werewolf")
-                        .addProperty("ambienceEnabled", !c.werewolf().ambienceEnabled()));
-            setup(p, id);
-          },
-          "Native sounds and titles",
-          "Private instructions remain available when disabled");
-    m.put(38, Material.RED_WOOL, "Stop & restore", () -> plugin.handle(p, plugin.arenas.stop(id)));
-    m.put(
-        43,
+        44,
         Material.BARRIER,
         "Delete arena",
         () ->
@@ -444,24 +526,7 @@ final class ArenaAdmin implements Listener {
                   list(p, 0);
                 },
                 () -> setup(p, id)));
-    m.put(
-        46,
-        Material.GOLDEN_AXE,
-        "Get admin tools",
-        () -> {
-          p.closeInventory();
-          plugin.tools.give(p, id);
-        },
-        "Items for corners, spawn, houses, points and doors");
-    m.put(
-        47,
-        Material.WRITABLE_BOOK,
-        "Readiness checklist",
-        () -> {
-          p.closeInventory();
-          plugin.tools.report(p, id);
-        });
-    m.put(49, Material.ARROW, "Back", () -> list(p, 0));
+    m.put(45, Material.ARROW, "Back", () -> list(p, 0));
     p.openInventory(m.inventory);
   }
 
@@ -490,7 +555,7 @@ final class ArenaAdmin implements Listener {
     var c = plugin.arenas.require(id).config;
     var entries =
         c.village().houses().entrySet().stream().sorted(Map.Entry.comparingByKey()).toList();
-    Menu m = new Menu(p, "Houses · " + id);
+    Menu m = new Menu(p, Kind.LIST, "Houses · " + id);
     for (int i = page * 36; i < Math.min(entries.size(), (page + 1) * 36); i++) {
       var entry = entries.get(i);
       m.put(
@@ -498,9 +563,9 @@ final class ArenaAdmin implements Listener {
           Material.RED_BED,
           entry.getKey(),
           () -> {
-            Menu detail = new Menu(p, entry.getKey());
+            Menu detail = new Menu(p, Kind.DETAIL, entry.getKey());
             detail.put(
-                20,
+                13,
                 Material.ENDER_PEARL,
                 "Inspect house",
                 () -> {
@@ -523,7 +588,7 @@ final class ArenaAdmin implements Listener {
                 },
                 coordinates(entry.getValue()));
             detail.put(
-                22,
+                11,
                 Material.COMPASS,
                 "Move house here",
                 () -> {
@@ -537,7 +602,7 @@ final class ArenaAdmin implements Listener {
                   houses(p, id, page);
                 });
             detail.put(
-                24,
+                15,
                 Material.BARRIER,
                 "Delete house",
                 () ->
@@ -554,15 +619,16 @@ final class ArenaAdmin implements Listener {
                           houses(p, id, 0);
                         },
                         () -> houses(p, id, page)));
-            detail.put(49, Material.ARROW, "Back", () -> houses(p, id, page));
+            detail.put(18, Material.ARROW, "Back", () -> houses(p, id, page));
             p.openInventory(detail.inventory);
           },
           coordinates(entry.getValue()));
     }
     paging(m, page, entries.size(), n -> houses(p, id, n));
-    m.put(
-        49,
+    m.area(
+        new int[] {48, 49, 50},
         Material.EMERALD,
+        "plus",
         "Add house here",
         () -> {
           var position = point(p, id);
@@ -581,14 +647,14 @@ final class ArenaAdmin implements Listener {
                 houses(p, id, 0);
               });
         });
-    m.put(48, Material.ARROW, "Setup", () -> setup(p, id));
+    m.put(46, Material.ARROW, "Setup", () -> setup(p, id));
     p.openInventory(m.inventory);
   }
 
   private void doors(Player p, String id, int page) {
     var c = plugin.arenas.require(id).config;
     var entries = c.village().doors();
-    Menu m = new Menu(p, "Doors · " + id);
+    Menu m = new Menu(p, Kind.LIST, "Doors · " + id);
     for (int i = page * 36; i < Math.min(entries.size(), (page + 1) * 36); i++) {
       var d = entries.get(i);
       m.put(
@@ -618,9 +684,10 @@ final class ArenaAdmin implements Listener {
                   () -> doors(p, id, page)));
     }
     paging(m, page, entries.size(), n -> doors(p, id, n));
-    m.put(
-        49,
+    m.area(
+        new int[] {48, 49, 50},
         Material.EMERALD,
+        "plus",
         "Register targeted door",
         () -> {
           editable(id);
@@ -644,7 +711,7 @@ final class ArenaAdmin implements Listener {
           doors(p, id, 0);
         },
         "Close the menu to aim at a door, then reopen");
-    m.put(48, Material.ARROW, "Setup", () -> setup(p, id));
+    m.put(46, Material.ARROW, "Setup", () -> setup(p, id));
     p.openInventory(m.inventory);
   }
 
@@ -654,9 +721,9 @@ final class ArenaAdmin implements Listener {
   }
 
   private void confirm(Player p, String title, Action yes, Action no) {
-    Menu m = new Menu(p, title);
-    m.put(22, Material.RED_WOOL, "Confirm: " + title, yes);
-    m.put(49, Material.ARROW, "Cancel", no);
+    Menu m = new Menu(p, Kind.CONFIRM, title);
+    m.area(new int[] {23, 24, 25}, Material.RED_WOOL, "trash", "Confirm: " + title, yes);
+    m.area(new int[] {19, 20, 21}, Material.ARROW, "back", "Cancel", no);
     p.openInventory(m.inventory);
   }
 

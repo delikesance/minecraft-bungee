@@ -334,4 +334,5 @@ Creative players can publish one public warp by default. `/warp` asks for a name
 
 * Every backend offers it on join (`MENU_PACK_BASE_URL` + the SHA-1 baked into the image at `/opt/vampyuyu-menus.sha1`). Players who decline or fail to load it keep the plain glass-pane menus: the layout is chosen per player after the client reports `SUCCESSFULLY_LOADED`.
 * The panel serves the ZIP publicly, and only by content hash: `GET /pack/<sha1>.zip` (immutable, cacheable). `make pack` builds the same reproducible ZIP locally; `make art` repaints the PNGs (needs headless Chrome); `make test-pack` validates the structure.
+* Painted so far: `/menu`, the arena setup/list/houses/doors/detail/confirm menus (`/arena admin`) and the warp list/detail/confirmation. Still plain: the in-game arena compass and the `/profil` menu.
 * Rendering inside the game client is not covered by automated tests. After changing art or fonts, open each menu once on a 1.21.9 client.

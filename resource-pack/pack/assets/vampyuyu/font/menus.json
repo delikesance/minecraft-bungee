@@ -3,8 +3,8 @@
     {
       "type": "space",
       "advances": {
-        "": -8,
-        "": -156
+        "\ue000": -8,
+        "\ue001": -133
       }
     },
     {
@@ -12,7 +12,45 @@
       "file": "vampyuyu:font/menu_lobby.png",
       "ascent": 13,
       "height": 168,
-      "chars": [""]
+      "chars": [
+        "\ue100"
+      ]
+    },
+    {
+      "type": "bitmap",
+      "file": "vampyuyu:font/menu_setup.png",
+      "ascent": 13,
+      "height": 222,
+      "chars": [
+        "\ue101"
+      ]
+    },
+    {
+      "type": "bitmap",
+      "file": "vampyuyu:font/menu_list.png",
+      "ascent": 13,
+      "height": 222,
+      "chars": [
+        "\ue102"
+      ]
+    },
+    {
+      "type": "bitmap",
+      "file": "vampyuyu:font/menu_detail.png",
+      "ascent": 13,
+      "height": 168,
+      "chars": [
+        "\ue103"
+      ]
+    },
+    {
+      "type": "bitmap",
+      "file": "vampyuyu:font/menu_confirm.png",
+      "ascent": 13,
+      "height": 168,
+      "chars": [
+        "\ue104"
+      ]
     }
   ]
 }

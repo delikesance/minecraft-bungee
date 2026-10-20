@@ -36,15 +36,44 @@ final class CommunityFeatures implements Listener {
     void run() throws Exception;
   }
 
-  private static final class Menu implements InventoryHolder {
+  private enum Kind {
+    LIST(MenuPack.LIST, 54),
+    DETAIL(MenuPack.DETAIL, 27),
+    CONFIRM(MenuPack.CONFIRM, 27),
+    /** Always the plain chest: no painted background exists for it. */
+    PLAIN(' ', 54);
+
+    final char glyph;
+    final int size;
+
+    Kind(char glyph, int size) {
+      this.glyph = glyph;
+      this.size = size;
+    }
+  }
+
+  private MenuPack pack;
+
+  /** Painted menu when the viewer loaded the resource pack, glass-pane chest otherwise. */
+  private final class Menu implements InventoryHolder {
     final Inventory inventory;
     final UUID viewer;
+    final boolean skinned;
     final Map<Integer, Action> actions = new HashMap<>();
 
-    Menu(Player p, String title) {
+    Menu(Player p, Kind kind, String title) {
       viewer = p.getUniqueId();
-      inventory = Bukkit.createInventory(this, 54, Component.text("Vampyuyu · " + title, GOLD));
-      for (int i = 0; i < 54; i++) inventory.setItem(i, item(Material.RED_STAINED_GLASS_PANE, " "));
+      skinned = kind != Kind.PLAIN && pack != null && pack.active(p);
+      if (skinned) {
+        inventory =
+            Bukkit.createInventory(
+                this, kind.size, MenuPack.title(kind.glyph, Component.text(title, GOLD)));
+      } else {
+        inventory =
+            Bukkit.createInventory(this, kind.size, Component.text("Vampyuyu · " + title, GOLD));
+        for (int i = 0; i < kind.size; i++)
+          inventory.setItem(i, item(Material.RED_STAINED_GLASS_PANE, " "));
+      }
     }
 
     public Inventory getInventory() {
@@ -52,7 +81,19 @@ final class CommunityFeatures implements Listener {
     }
 
     void put(int slot, Material material, String title, Action action, String... lore) {
-      inventory.setItem(slot, item(material, title, lore));
+      place(slot, material, null, title, action, lore);
+    }
+
+    /** One action over several slots, so a painted button is clickable on its whole surface. */
+    void area(int[] slots, Material material, String icon, String title, Action action, String... lore) {
+      for (int slot : slots) place(slot, material, icon, title, action, lore);
+    }
+
+    void place(int slot, Material material, String icon, String title, Action action, String... lore) {
+      ItemStack stack = item(material, title, lore);
+      if (skinned)
+        MenuPack.icon(stack, icon != null ? icon : MenuPack.iconFor(material, title), false);
+      inventory.setItem(slot, stack);
       if (action != null) actions.put(slot, action);
     }
   }
@@ -69,9 +110,10 @@ final class CommunityFeatures implements Listener {
     return item;
   }
 
-  CommunityFeatures(JavaPlugin plugin, String server, String bridge, String token)
+  CommunityFeatures(JavaPlugin plugin, String server, String bridge, String token, MenuPack pack)
       throws Exception {
     this.plugin = plugin;
+    this.pack = pack;
     this.server = server;
     this.bridge = bridge;
     this.token = token;
@@ -264,7 +306,7 @@ final class CommunityFeatures implements Listener {
 
   private void listing(Player p, int page) {
     List<WarpStore.Warp> list = warps.all();
-    Menu m = new Menu(p, "Warps · " + (page + 1));
+    Menu m = new Menu(p, Kind.LIST, "Warps · " + (page + 1));
     for (int i = page * 36; i < Math.min(list.size(), (page + 1) * 36); i++) {
       var w = list.get(i);
       m.put(
@@ -279,9 +321,10 @@ final class CommunityFeatures implements Listener {
     if (page > 0) m.put(45, Material.ARROW, "Previous", () -> listing(p, page - 1));
     if (list.size() > (page + 1) * 36)
       m.put(53, Material.ARROW, "Next", () -> listing(p, page + 1));
-    m.put(
-        49,
+    m.area(
+        new int[] {48, 49, 50},
         Material.EMERALD,
+        "plus",
         "Create a warp",
         () -> {
           Location origin = p.getLocation().clone();
@@ -292,9 +335,9 @@ final class CommunityFeatures implements Listener {
 
   private void details(Player p, String name, int page) {
     var w = warps.get(name);
-    Menu m = new Menu(p, w.name());
+    Menu m = new Menu(p, Kind.DETAIL, w.name());
     m.put(
-        22,
+        13,
         Material.ENDER_PEARL,
         "Teleport",
         () -> teleport(p, warps.get(name)),
@@ -302,7 +345,7 @@ final class CommunityFeatures implements Listener {
         "Owner: " + w.ownerName());
     if (w.owner().equals(p.getUniqueId()) || p.hasPermission("vampyuyu.warp.admin")) {
       m.put(
-          30,
+          11,
           Material.WRITABLE_BOOK,
           "Edit description",
           () ->
@@ -320,25 +363,31 @@ final class CommunityFeatures implements Listener {
                         details(p, name, page);
                       }));
       m.put(
-          32,
+          15,
           Material.BARRIER,
           "Delete",
           () -> {
-            Menu confirm = new Menu(p, "Confirm deletion");
-            confirm.put(
-                22,
+            Menu confirm = new Menu(p, Kind.CONFIRM, "Delete " + name);
+            confirm.area(
+                new int[] {23, 24, 25},
                 Material.RED_WOOL,
+                "trash",
                 "Delete " + name,
                 () -> {
                   warps.edit(
                       name, p.getUniqueId(), p.hasPermission("vampyuyu.warp.admin"), "", true);
                   listing(p, 0);
                 });
-            confirm.put(49, Material.ARROW, "Cancel", () -> details(p, name, page));
+            confirm.area(
+                new int[] {19, 20, 21},
+                Material.ARROW,
+                "back",
+                "Cancel",
+                () -> details(p, name, page));
             p.openInventory(confirm.inventory);
           });
     }
-    m.put(49, Material.ARROW, "Back", () -> listing(p, page));
+    m.put(18, Material.ARROW, "Back", () -> listing(p, page));
     p.openInventory(m.inventory);
   }
 
@@ -431,7 +480,7 @@ final class CommunityFeatures implements Listener {
                         say(p, "Profile unavailable. Please retry later.");
                         return;
                       }
-                      Menu m = new Menu(p, "Profile · " + p.getName());
+                      Menu m = new Menu(p, Kind.PLAIN, "Profile · " + p.getName());
                       int slot = 0;
                       for (var row : data.getAsJsonArray("history")) {
                         JsonObject r = row.getAsJsonObject();

@@ -30,10 +30,12 @@ def text(x, y, w, t, size=14, color="#fff", serif=False, align="center", ls=0, e
     return (f'<div style="position:absolute;left:{x}px;top:{y}px;width:{w}px;text-align:{align};{ff}'
             f'font-size:{size}px;letter-spacing:{ls}px;color:{color};text-shadow:0 2px 6px rgba(5,5,30,.95);{extra}">{t}</div>')
 
-def title(name):
+def title(name=""):
+    """Painted brand prefix; the plugin appends the dynamic part of the title at GUI x=44."""
+    tail = f' <span style="color:#e9d99b">{name}</span>' if name else ""
     return ('<div style="position:absolute;left:24px;top:15px;font-size:20px;text-shadow:0 2px 6px rgba(5,5,30,.9)">'
             '<span style="color:#ff9aa0;font-weight:600">Vampyuyu</span> '
-            f'<span style="color:#c5a69b">·</span> <span style="color:#e9d99b">{name}</span></div>')
+            f'<span style="color:#c5a69b">·</span>{tail}</div>')
 
 def frame(w, h, svg, body):
     """Square-cornered full-bleed GUI texture (the container bitmap sits over the vanilla panel)."""
@@ -83,7 +85,140 @@ def lobby():
             + text(183, 188, 150, "← Back to the lobby", 13, "#fff", extra="white-space:nowrap"))
     return W, H, frame(W, H, svg, body)
 
-ART = {"menu_lobby": lobby}
+def grad(i, stops):
+    return f'<linearGradient id="{i}" x1="0" y1="0" x2="0" y2="1">' + "".join(
+        f'<stop offset="{o}" stop-color="{c}"/>' for o, c in stops) + "</linearGradient>"
+
+def glass(x, y, w, h, r=14, op=.30):
+    return (f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="{r}" fill="#0a0820" fill-opacity="{op}" '
+            'stroke="#fff" stroke-opacity=".28"/>')
+
+def pines(xs, y, h, fill):
+    return "".join(f'<path d="M{x} {y} l{h*.28:.0f} {h} h{-h*.56:.0f} z" fill="{fill}"/>'
+                   f'<path d="M{x} {y+h*.35:.0f} l{h*.34:.0f} {h*.75:.0f} h{-h*.68:.0f} z" fill="{fill}"/>' for x in xs)
+
+def setup():
+    """/arena setup: 54-slot container (176x222). Rows y=51+54r; strips group the controls."""
+    W, H = 528, 666
+    svg = f"""<defs>{grad('sk', [(0, '#0b0e2e'), (.42, '#2b2260'), (.62, '#7a3a7a'), (.7, '#1a0f33'), (1, '#0c0720')])}
+<radialGradient id="mg"><stop offset="0" stop-color="#fff6d8" stop-opacity=".8"/><stop offset="1" stop-color="#8aa0ff" stop-opacity="0"/></radialGradient>
+<radialGradient id="gg"><stop offset="0" stop-color="#8fd16a" stop-opacity=".55"/><stop offset="1" stop-color="#8fd16a" stop-opacity="0"/></radialGradient>
+<radialGradient id="rg"><stop offset="0" stop-color="#e6564a" stop-opacity=".55"/><stop offset="1" stop-color="#e6564a" stop-opacity="0"/></radialGradient></defs>
+<rect width="{W}" height="{H}" fill="url(#sk)"/>{stars(330, 26, 5)}
+<circle cx="484" cy="28" r="60" fill="url(#mg)"/><circle cx="484" cy="28" r="14" fill="#fff4d6"/>
+<path d="M0 420 C110 380 200 430 300 410 S450 390 528 420 V{H} H0z" fill="#1b1442"/>
+{pines([20, 70, 130, 200, 300, 380, 440, 500], 430, 80, '#0f0a2a')}
+<path d="M0 520 C120 500 230 530 340 515 S480 505 528 525 V{H} H0z" fill="#0b0720"/>
+{''.join(glass(21, 53 + 54 * r, 486, 50, 14, .55) for r in range(4))}{glass(21, 53 + 270, 486, 50, 14, .45)}
+<circle cx="{21 + 7 * 54 + 27}" cy="78" r="30" fill="url(#gg)"/><circle cx="{21 + 8 * 54 + 27}" cy="78" r="30" fill="url(#rg)"/>
+<circle cx="{21 + 8 * 54 + 27}" cy="{51 + 4 * 54 + 27}" r="30" fill="url(#rg)"/>""" 
+    caps = ["ARENA", "VILLAGE", "LIMITS", "RULES"]
+    body = title() + "".join(text(28, 51 + 54 * i + 18, 50, c, 11, "#e9d99b", True, "left", 1) for i, c in enumerate(caps))
+    body += text(75, 51 + 270 + 16, 300, "Back to the arena list", 14, "#d9d0ea", align="left", extra="white-space:nowrap")
+    return W, H, frame(W, H, svg, body)
+
+def listing():
+    """Paged list (warps, arenas, houses, doors): entries rows 0-3, nav + create on row 5."""
+    W, H = 528, 666
+    svg = f"""<defs>{grad('sk', [(0, '#1d1244'), (.4, '#7a3f7e'), (.58, '#f0a07a'), (.64, '#2a1448'), (1, '#0c0720')])}
+<radialGradient id="sg"><stop offset="0" stop-color="#fff0c8" stop-opacity=".9"/><stop offset="1" stop-color="#ffb454" stop-opacity="0"/></radialGradient></defs>
+<rect width="{W}" height="{H}" fill="url(#sk)"/>{stars(180, 20, 9)}
+<circle cx="264" cy="380" r="150" fill="url(#sg)"/>
+<path d="M0 410 L70 340 L130 390 L210 310 L300 400 L380 330 L528 410 V{H} H0z" fill="#3a1f5a"/>
+<path d="M0 470 L90 400 L170 460 L260 390 L350 470 L440 400 L528 460 V{H} H0z" fill="#241240"/>
+<path d="M0 520 Q264 480 528 520 V{H} H0z" fill="#150a2c"/>
+{glass(21, 51, 486, 219, 18)}
+<rect x="171" y="326" width="186" height="42" rx="21" fill="#e9d99b" fill-opacity=".18" stroke="#e9d99b" stroke-opacity=".8" stroke-width="2"/>"""
+    body = title() + text(171, 335, 186, "Create", 15, "#fff6d8")
+    return W, H, frame(W, H, svg, body)
+
+def detail():
+    """Warp/house detail: 27 slots. Teleport portal on slot 13, side actions 11 and 15, back on 18."""
+    W, H = 528, 504
+    svg = f"""<defs>{grad('sk', [(0, '#0c2438'), (.3, '#2f6b7c'), (.5, '#f3c58c'), (.51, '#10303a'), (1, '#07161a')])}
+<radialGradient id="pg"><stop offset="0" stop-color="#d8fff4" stop-opacity=".95"/><stop offset=".45" stop-color="#6fe0c4" stop-opacity=".5"/><stop offset="1" stop-color="#3fb59a" stop-opacity="0"/></radialGradient></defs>
+<rect width="{W}" height="{H}" fill="url(#sk)"/>{stars(120, 16, 4)}
+<path d="M0 230 L100 170 L190 215 L280 150 L380 215 L460 170 L528 230 V{H} H0z" fill="#10303a"/>
+<circle cx="264" cy="132" r="96" fill="url(#pg)"/>
+<circle cx="264" cy="132" r="62" fill="none" stroke="#d8fff4" stroke-width="3"/><circle cx="264" cy="132" r="50" fill="none" stroke="#fff" stroke-opacity=".35" stroke-dasharray="3 6"/>
+<circle cx="156" cy="132" r="32" fill="#fff" fill-opacity=".1" stroke="#fff" stroke-opacity=".4"/>
+<circle cx="372" cy="132" r="32" fill="#f08a80" fill-opacity=".14" stroke="#f08a80" stroke-opacity=".6"/>"""
+    body = title() + text(75, 51 + 108 + 16, 300, "Back to the list", 14, "#fff6d8", align="left", extra="white-space:nowrap")
+    return W, H, frame(W, H, svg, body)
+
+def confirm():
+    """Destructive confirmation: 27 slots. Cancel on 19-21, confirm on 23-25."""
+    W, H = 528, 504
+    svg = f"""<defs>{grad('sk', [(0, '#1a0a14'), (.3, '#5a1626'), (.5, '#d9604a'), (.51, '#1a0a14'), (1, '#0c0510')])}
+<radialGradient id="eg"><stop offset="0" stop-color="#ffb070" stop-opacity=".7"/><stop offset="1" stop-color="#ff6a2c" stop-opacity="0"/></radialGradient></defs>
+<rect width="{W}" height="{H}" fill="url(#sk)"/>{stars(110, 12, 8)}
+<circle cx="264" cy="110" r="120" fill="url(#eg)"/>
+<path d="M264 36 l44 76 h-88z" fill="none" stroke="#f0b26a" stroke-width="2.5" stroke-linejoin="round"/><path d="M264 62v26M264 98v2" stroke="#f0b26a" stroke-width="4" stroke-linecap="round"/>
+<rect x="75" y="155" width="162" height="52" rx="18" fill="#fff" fill-opacity=".1" stroke="#fff" stroke-opacity=".55" stroke-width="2"/>
+<rect x="291" y="155" width="162" height="52" rx="18" fill="#d6483c" fill-opacity=".35" stroke="#f08a80" stroke-width="2"/>"""
+    body = (title() + text(75, 159 + 14, 162, "CANCEL", 17, "#fff6d8", True, "center", 3).replace("top:173px", "top:170px")
+            + text(291, 170, 162, "CONFIRM", 17, "#ffd6d0", True, "center", 3)
+            + text(60, 124, 408, "This cannot be undone.", 13, "#ffe3c4"))
+    return W, H, frame(W, H, svg, body)
+
+ICONS={
+'star':'<path d="M12 2l2.4 7.3 7.6.1-6.1 4.5 2.3 7.4L12 16.8 5.8 21.3l2.3-7.4L2 9.4l7.6-.1z" fill="#cfe4ff" fill-opacity=".55"/>',
+'vial':'<path d="M9 3h6M10 3v6l-4 9a2 2 0 0 0 2 3h8a2 2 0 0 0 2-3l-4-9V3" /><path d="M8 15h8" stroke="#b78cff"/>',
+'book':'<path d="M5 3h11l3 3v15H5z"/><path d="M8 8h8M8 12h8M8 16h5"/>',
+'clock':'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+'exit':'<path d="M6 3h10v18H6z"/><circle cx="13" cy="12" r="1" fill="#fff6d8"/><path d="M20 12h-4M18 10l2 2-2 2" stroke="#f08a80"/>',
+'play':'<path d="M7 4l13 8-13 8z" fill="#8fd16a" fill-opacity=".7" stroke="#d6f2c2"/>',
+'stop':'<rect x="5" y="5" width="14" height="14" rx="1" fill="#d6483c" fill-opacity=".7" stroke="#f6c3be"/>',
+'back':'<path d="M20 12H5M11 6l-6 6 6 6"/>',
+'next':'<path d="M4 12h15M13 6l6 6-6 6"/>',
+'axe':'<path d="M4 20L15 9"/><path d="M12 4c4-1 7 1 8 4-3 1-6 0-8-1z" fill="#e9b23a" fill-opacity=".5"/>',
+'map':'<path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2z"/><path d="M9 4v14M15 6v14"/>',
+'compass':'<circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z" fill="#c8453a"/>',
+'bed':'<path d="M3 18V8M3 14h18v4M21 14v-3a3 3 0 0 0-3-3h-7v6"/><circle cx="7" cy="11" r="1.8" fill="#c8453a"/>',
+'bone':'<path d="M7 17l10-10M5.5 15.5a2.2 2.2 0 1 0 1.5 3.7 2.2 2.2 0 1 0 3.7-1.5M18.5 8.5a2.2 2.2 0 1 0-1.5-3.7 2.2 2.2 0 1 0-3.7 1.5"/>',
+'sun':'<circle cx="12" cy="12" r="4" fill="#e9b23a" fill-opacity=".6"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/>',
+'lever':'<rect x="3" y="15" width="18" height="5" rx="1"/><path d="M12 15l5-10"/><circle cx="17" cy="5" r="1.6" fill="#c8453a"/>',
+'coin':'<circle cx="12" cy="12" r="9" fill="#e9b23a" fill-opacity=".4"/><path d="M12 7v10M9.5 9.5h4a1.5 1.5 0 0 1 0 3h-3a1.5 1.5 0 0 0 0 3h4"/>',
+'door':'<path d="M6 3h12v18H6z"/><circle cx="15" cy="12" r="1.2" fill="#fff6d8"/>',
+'pearl':'<circle cx="12" cy="12" r="8" fill="#3fb59a" fill-opacity=".45"/><path d="M8 9c1-2 3-3 5-3" stroke="#d8fff4"/>',
+'plus':'<path d="M12 5v14M5 12h14"/>',
+'pencil':'<path d="M4 20l1-5L16 4l4 4L9 19z"/><path d="M13 7l4 4"/>',
+'trash':'<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13" stroke="#f08a80"/>',
+'warn':'<path d="M12 3l10 18H2z" stroke="#f0b26a"/><path d="M12 10v5M12 18v.5" stroke="#f0b26a"/>',
+'tag':'<path d="M4 4h8l8 8-8 8-8-8z"/><circle cx="8.5" cy="8.5" r="1.3" fill="#fff6d8"/>',
+'ruler':'<path d="M3 17L17 3l4 4L7 21z"/><path d="M7 13l2 2M10 10l2 2M13 7l2 2"/>',
+'sword':'<path d="M5 19L18 6V3h-3L2 16M7 13l4 4M4 20l3-3"/>',
+'chest':'<rect x="3" y="9" width="18" height="11" rx="1"/><path d="M3 13h18M12 12v3"/><path d="M3 9a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4"/>',
+'note':'<path d="M9 18V5l11-2v13"/><circle cx="6.5" cy="18" r="2.5" fill="#fff6d8"/><circle cx="17.5" cy="16" r="2.5" fill="#fff6d8"/>',
+}
+
+ICON_STROKE = 'stroke="#fff6d8" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" fill="none"'
+
+def icon_html(name):
+    return (f'<!doctype html><html style="background:transparent"><body style="margin:0;background:transparent">'
+            f'<svg width="128" height="128" viewBox="-4 -4 32 32" {ICON_STROKE}>{ICONS[name]}</svg></body></html>')
+
+def render_icons():
+    """One transparent 128px PNG, item model and item definition per icon (item_model vampyuyu:icon/<name>)."""
+    import json
+    base = PACK
+    for sub in ("textures/item/icon", "models/item/icon", "items/icon"):
+        (base / sub).mkdir(parents=True, exist_ok=True)
+    for name in ICONS:
+        with tempfile.TemporaryDirectory() as tmp:
+            page = pathlib.Path(tmp) / "i.html"
+            page.write_text(icon_html(name), encoding="utf-8")
+            subprocess.run([CHROME, "--headless=new", "--disable-gpu", "--hide-scrollbars", "--no-sandbox",
+                            "--default-background-color=00000000", "--window-size=128,128",
+                            f"--screenshot={base / 'textures/item/icon' / (name + '.png')}", page.as_uri()],
+                           check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        (base / "models/item/icon" / f"{name}.json").write_text(json.dumps(
+            {"parent": "minecraft:item/generated", "textures": {"layer0": f"vampyuyu:item/icon/{name}"}}, indent=2) + "\n")
+        (base / "items/icon" / f"{name}.json").write_text(json.dumps(
+            {"model": {"type": "minecraft:model", "model": f"vampyuyu:item/icon/{name}"}}, indent=2) + "\n")
+    print("wrote", len(ICONS), "icons")
+
+ART = {"menu_lobby": lobby, "menu_setup": setup, "menu_list": listing, "menu_detail": detail, "menu_confirm": confirm}
 
 def render(name):
     if not CHROME:
@@ -100,5 +235,6 @@ def render(name):
     print("wrote", out.relative_to(HERE.parent.parent))
 
 if __name__ == "__main__":
-    for n in (sys.argv[1:] or ART):
-        render(n)
+    wanted = sys.argv[1:] or [*ART, "icons"]
+    for n in wanted:
+        render_icons() if n == "icons" else render(n)
