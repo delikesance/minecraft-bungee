@@ -44,4 +44,18 @@ public class MenuSkinTest {
     assertEquals("trash", MenuSkin.iconFor(Material.BARRIER, "Delete arena"));
     assertEquals("tag", MenuSkin.iconFor(Material.DIAMOND, "anything else"));
   }
+
+  @Test
+  public void paintedCompassPlacesHeadsOnTheRingThenInside() {
+    assertEquals(3, CompassGUI.headSlot(true, 0));
+    assertEquals(41, CompassGUI.headSlot(true, 15));
+    java.util.Set<Integer> used = new java.util.HashSet<>();
+    for (int i = 0; i < 45; i++) {
+      int slot = CompassGUI.headSlot(true, i);
+      assertTrue("slot " + slot, slot >= 0 && slot < 45);
+      assertTrue("duplicate " + slot, used.add(slot));
+    }
+    assertEquals(-1, CompassGUI.headSlot(true, 45));
+    assertEquals(7, CompassGUI.headSlot(false, 7));
+  }
 }

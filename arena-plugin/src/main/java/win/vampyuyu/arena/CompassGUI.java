@@ -82,7 +82,16 @@ public final class CompassGUI implements Listener {
   public void open(Player p) {
     ArenaSession s = plugin.arenas.session(p.getUniqueId());
     if (s == null) return;
-    CompassMenuHolder holder = new CompassMenuHolder(p.getUniqueId(), s.config.id());
+    boolean skinned = plugin.skin != null && plugin.skin.active(p);
+    CompassMenuHolder holder =
+        new CompassMenuHolder(
+            p.getUniqueId(),
+            s.config.id(),
+            skinned,
+            skinned
+                ? MenuSkin.title(
+                    MenuSkin.COMPASS, MenuSkin.ROWS_54, Component.text("Arena compass", GOLD))
+                : Component.text("Vampyuyu · Arena compass"));
     render(holder, p, s);
     p.openInventory(holder.getInventory());
   }
@@ -106,6 +115,27 @@ public final class CompassGUI implements Listener {
     }
   }
 
+  /** Council ring first, then the inner slots, so up to 45 players still fit the painted window. */
+  static final int[] RING = {3, 4, 5, 10, 11, 15, 16, 18, 26, 28, 29, 33, 34, 39, 40, 41};
+
+  static int headSlot(boolean skinned, int index) {
+    if (!skinned) return index;
+    if (index < RING.length) return RING[index];
+    int extra = index - RING.length;
+    for (int slot = 0; slot < 45; slot++) {
+      boolean inRing = false;
+      for (int r : RING) inRing |= r == slot;
+      if (!inRing && extra-- == 0) return slot;
+    }
+    return -1;
+  }
+
+  private static ItemStack themed(CompassMenuHolder holder, ItemStack item, String icon) {
+    return holder.skinned ? MenuSkin.icon(item, icon, false) : item;
+  }
+
+  private static final TextColor GOLD = TextColor.color(0xe9d99b);
+
   private static String friendly(String text, ArenaSession s) {
     for (var entry : s.players.entrySet())
       text = text.replace(entry.getKey().toString(), entry.getValue());
@@ -123,13 +153,14 @@ public final class CompassGUI implements Listener {
     String phaseLabel = view == null ? s.phase() : view.phase();
     Set<UUID> alive = game == null ? Set.copyOf(s.players.keySet()) : game.alive();
     Map<UUID, Integer> totals = game == null ? Map.of() : game.votes(p.getUniqueId());
-    int slot = 0;
+    int index = 0;
     for (var entry :
         s.players.entrySet().stream()
             .filter(e -> alive.contains(e.getKey()))
             .sorted(Map.Entry.comparingByValue())
             .toList()) {
-      if (slot >= 45) break;
+      int slot = headSlot(holder.skinned, index++);
+      if (slot < 0 || index > 45) break;
       ItemStack head =
           item(
               Material.PLAYER_HEAD,
@@ -148,19 +179,23 @@ public final class CompassGUI implements Listener {
       if (profile != null) skull.setOwnerProfile(profile.clone());
       head.setItemMeta(skull);
       holder.targets.put(slot, entry.getKey());
-      inv.setItem(slot++, head);
+      inv.setItem(slot, head);
     }
-    for (int i = 45; i < 54; i++) inv.setItem(i, item(Material.RED_STAINED_GLASS_PANE, " "));
+    if (!holder.skinned)
+      for (int i = 45; i < 54; i++) inv.setItem(i, item(Material.RED_STAINED_GLASS_PANE, " "));
     String role = game == null ? "Not assigned yet" : game.role(p.getUniqueId());
     inv.setItem(
         45,
-        item(
-            Material.NETHER_STAR,
-            "Your secret role: " + role,
-            game == null
-                ? "The game starts when an administrator is ready."
-                : friendly(game.help(p.getUniqueId()), s),
-            "Role information is visible only to you."));
+        themed(
+            holder,
+            item(
+                Material.NETHER_STAR,
+                "Your secret role: " + role,
+                game == null
+                    ? "The game starts when an administrator is ready."
+                    : friendly(game.help(p.getUniqueId()), s),
+                "Role information is visible only to you."),
+            "star"));
     ItemStack roleCard = inv.getItem(45);
     if (roleCard != null) {
       var meta = roleCard.getItemMeta();
@@ -169,26 +204,32 @@ public final class CompassGUI implements Listener {
     }
     inv.setItem(
         48,
-        item(
-            Material.BOOK,
-            s.config.name(),
-            "Phase: " + phaseLabel,
-            "PvP: " + (s.config.allowPvP() ? "allowed" : "disabled"),
-            "Stay within the arena. Your original items are stored.",
-            game instanceof FreeplayGame
-                ? friendly(game.help(p.getUniqueId()), s)
-                : "Day ties and night ties eliminate nobody."));
+        themed(
+            holder,
+            item(
+                Material.BOOK,
+                s.config.name(),
+                "Phase: " + phaseLabel,
+                "PvP: " + (s.config.allowPvP() ? "allowed" : "disabled"),
+                "Stay within the arena. Your original items are stored.",
+                game instanceof FreeplayGame
+                    ? friendly(game.help(p.getUniqueId()), s)
+                    : "Day ties and night ties eliminate nobody."),
+            "book"));
     inv.setItem(
         50,
-        item(
-            Material.CLOCK,
-            "Phase timer",
-            s.game == null
-                ? "Waiting for an administrator to start"
-                : view != null && !view.timerVisible()
-                    ? view.instruction()
-                    : Math.max(0, (s.phaseEndsAt - System.currentTimeMillis() + 999) / 1000)
-                        + " seconds remaining"));
+        themed(
+            holder,
+            item(
+                Material.CLOCK,
+                "Phase timer",
+                s.game == null
+                    ? "Waiting for an administrator to start"
+                    : view != null && !view.timerVisible()
+                        ? view.instruction()
+                        : Math.max(0, (s.phaseEndsAt - System.currentTimeMillis() + 999) / 1000)
+                            + " seconds remaining"),
+            "clock"));
     if (game != null) {
       int i = 0;
       int[] slots = {46, 47, 49, 51, 52};
@@ -198,12 +239,18 @@ public final class CompassGUI implements Listener {
         holder.abilities.put(position, ability.getKey());
         inv.setItem(
             position,
-            item(Material.POTION, friendly(ability.getValue(), s), "Click to use this ability."));
+            themed(
+                holder,
+                item(Material.POTION, friendly(ability.getValue(), s), "Click to use this ability."),
+                "vial"));
       }
     }
     inv.setItem(
         53,
-        item(Material.RED_WOOL, "Leave arena", "Restore your original items, stats and position."));
+        themed(
+            holder,
+            item(Material.RED_WOOL, "Leave arena", "Restore your original items, stats and position."),
+            "exit"));
   }
 
   @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)

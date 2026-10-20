@@ -221,7 +221,39 @@ def render_icons():
             {"model": {"type": "minecraft:model", "model": f"vampyuyu:item/icon/{name}"}}, indent=2) + "\n")
     print("wrote", len(ICONS), "icons")
 
-ART = {"menu_lobby": lobby, "menu_setup": setup, "menu_list": listing, "menu_detail": detail, "menu_confirm": confirm}
+def compass():
+    """In-game arena compass: heads on a council ring around a campfire, controls on the bottom row."""
+    W, H = 528, 666
+    svg = f"""<defs>{grad('sk', [(0, '#080a24'), (.4, '#241c58'), (.58, '#5c3070'), (.66, '#120b2a'), (1, '#0a0618')])}
+<radialGradient id="mg"><stop offset="0" stop-color="#fff6d8" stop-opacity=".8"/><stop offset="1" stop-color="#8aa0ff" stop-opacity="0"/></radialGradient>
+<radialGradient id="fg"><stop offset="0" stop-color="#ffcf70" stop-opacity=".95"/><stop offset=".5" stop-color="#ff8a3c" stop-opacity=".35"/><stop offset="1" stop-color="#ff6a2c" stop-opacity="0"/></radialGradient></defs>
+<rect width="{W}" height="{H}" fill="url(#sk)"/>{stars(300, 22, 3)}
+<circle cx="484" cy="28" r="60" fill="url(#mg)"/><circle cx="484" cy="28" r="14" fill="#fff4d6"/>
+<g fill="#140d33"><path d="M0 330 V220 h30 v-26 q14 -26 28 0 v26 h36 v-40 q16 -30 32 0 v40 h20 V330z"/><path d="M528 330 V206 h-34 v-30 q-16 -28 -32 0 v30 h-40 v-24 q-14 -24 -28 0 v24 h-18 V330z"/></g>
+<ellipse cx="264" cy="186" rx="236" ry="132" fill="#0a0820" fill-opacity=".45" stroke="#e9d99b" stroke-opacity=".55" stroke-width="2"/>
+<ellipse cx="264" cy="186" rx="226" ry="122" fill="none" stroke="#fff" stroke-opacity=".12" stroke-dasharray="3 7"/>
+<circle cx="264" cy="186" r="60" fill="url(#fg)"/><path d="M248 200 l32 -8 M248 192 l32 8" stroke="#5a3418" stroke-width="5" stroke-linecap="round"/>
+<path d="M264 196 q-14 -22 0 -42 q14 20 0 42z" fill="#ff9a3c"/><path d="M264 196 q-7 -12 0 -24 q7 12 0 24z" fill="#fff0a8"/>
+{glass(21, 53 + 270, 486, 50, 16, .5)}
+<path d="M0 470 Q132 440 264 465 T528 450 V{H} H0z" fill="#0b0720"/>{pines([30, 90, 160, 260, 350, 430, 490], 470, 90, '#080518')}
+<path d="M0 560 Q132 535 264 555 T528 545 V{H} H0z" fill="#06040f"/>"""
+    body = title()
+    return W, H, frame(W, H, svg, body)
+
+def profile():
+    """/profil: balance medallion on slot 4, event history card on rows 1-4, paging on row 5."""
+    W, H = 528, 666
+    svg = f"""<defs>{grad('sk', [(0, '#2d1b4e'), (.3, '#8a4a7a'), (.5, '#f5c06a'), (.56, '#3a1f5a'), (1, '#120a24')])}
+<radialGradient id="cg"><stop offset="0" stop-color="#ffe9a8" stop-opacity=".95"/><stop offset="1" stop-color="#ffb454" stop-opacity="0"/></radialGradient></defs>
+<rect width="{W}" height="{H}" fill="url(#sk)"/>{stars(160, 22, 6)}
+<circle cx="264" cy="78" r="70" fill="url(#cg)"/><circle cx="264" cy="78" r="30" fill="#e9b23a" fill-opacity=".35" stroke="#ffe9a8" stroke-width="2.5"/><circle cx="264" cy="78" r="24" fill="none" stroke="#fff" stroke-opacity=".4" stroke-dasharray="3 5"/>
+{glass(21, 105, 486, 218, 16, .5)}
+<path d="M0 450 Q264 400 528 450 V{H} H0z" fill="#3a1f5a"/><path d="M0 520 Q264 480 528 520 V{H} H0z" fill="#1a0e34"/>"""
+    body = (title() + text(24, 66, 190, "EVENT HISTORY", 11, "#e9d99b", True, "left", 2)
+            + text(318, 70, 190, "Global balance", 12, "#fff6d8", True, "left", 2))
+    return W, H, frame(W, H, svg, body)
+
+ART = {"menu_lobby": lobby, "menu_setup": setup, "menu_list": listing, "menu_detail": detail, "menu_confirm": confirm, "menu_compass": compass, "menu_profile": profile}
 
 def _shot(html, w, h, out):
     with tempfile.TemporaryDirectory() as tmp:

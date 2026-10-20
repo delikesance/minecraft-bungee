@@ -37,6 +37,7 @@ final class MenuPack implements Listener {
     static final char LOBBY = '\uE100';
     static final char LIST = '\uE300';
     static final char DETAIL = '\uE400';
+    static final char PROFILE = '\uE700';
     static final char CONFIRM = '\uE500';
     static final int COLS = 4;
     static final int ROWS_27 = 4;
@@ -47,10 +48,12 @@ final class MenuPack implements Listener {
     private final UUID id;
     private final String url;
     private final byte[] hash;
+    private final boolean required;
     private final Set<UUID> loaded = ConcurrentHashMap.newKeySet();
 
-    MenuPack(JavaPlugin plugin, String baseUrl, String sha1) {
+    MenuPack(JavaPlugin plugin, String baseUrl, String sha1, boolean required) {
         this.plugin = plugin;
+        this.required = required;
         this.hash = parseSha1(sha1);
         this.id = packId(sha1);
         this.url = packUrl(baseUrl, sha1);
@@ -66,13 +69,18 @@ final class MenuPack implements Listener {
         }
         try {
             String sha1 = Files.readString(file, StandardCharsets.UTF_8).trim();
-            MenuPack pack = new MenuPack(plugin, base, sha1);
-            plugin.getLogger().info("Menu resource pack offered from " + pack.url);
+            MenuPack pack = new MenuPack(plugin, base, sha1, required(System.getenv("MENU_PACK_REQUIRED")));
+            plugin.getLogger().info("Menu resource pack " + (pack.required ? "required" : "offered") + " from " + pack.url);
             return pack;
         } catch (IOException | IllegalArgumentException e) {
             plugin.getLogger().warning("Menu resource pack disabled: " + e.getMessage());
             return null;
         }
+    }
+
+    /** MENU_PACK_REQUIRED=true makes the client download it or disconnect; anything else keeps it optional. */
+    static boolean required(String value) {
+        return value != null && value.trim().equalsIgnoreCase("true");
     }
 
     static byte[] parseSha1(String sha1) {
@@ -154,7 +162,8 @@ final class MenuPack implements Listener {
     public void join(PlayerJoinEvent event) {
         loaded.remove(event.getPlayer().getUniqueId());
         event.getPlayer().setResourcePack(id, url, hash,
-                Component.text("Optional Vampyuyu menu theme"), false);
+                Component.text(required ? "Vampyuyu menu theme (required)" : "Optional Vampyuyu menu theme"),
+                required);
     }
 
     @EventHandler

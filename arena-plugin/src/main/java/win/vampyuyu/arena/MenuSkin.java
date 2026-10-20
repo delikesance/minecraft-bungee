@@ -29,6 +29,7 @@ final class MenuSkin implements Listener {
   static final Key FONT = Key.key("vampyuyu", "menus");
   /** First tile of each background (see resource-pack/layout.py); each has COLS x rows tiles. */
   static final char SETUP = '\uE200';
+  static final char COMPASS = '\uE600';
   static final char LIST = '\uE300';
   static final char DETAIL = '\uE400';
   static final char CONFIRM = '\uE500';

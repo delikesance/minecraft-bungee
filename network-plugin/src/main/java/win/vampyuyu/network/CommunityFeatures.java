@@ -40,8 +40,7 @@ final class CommunityFeatures implements Listener {
     LIST(MenuPack.LIST, 54, MenuPack.ROWS_54),
     DETAIL(MenuPack.DETAIL, 27, MenuPack.ROWS_27),
     CONFIRM(MenuPack.CONFIRM, 27, MenuPack.ROWS_27),
-    /** Always the plain chest: no painted background exists for it. */
-    PLAIN(' ', 54, 0);
+    PROFILE(MenuPack.PROFILE, 54, MenuPack.ROWS_54);
 
     final char glyph;
     final int size;
@@ -65,7 +64,7 @@ final class CommunityFeatures implements Listener {
 
     Menu(Player p, Kind kind, String title) {
       viewer = p.getUniqueId();
-      skinned = kind != Kind.PLAIN && pack != null && pack.active(p);
+      skinned = pack != null && pack.active(p);
       if (skinned) {
         inventory =
             Bukkit.createInventory(
@@ -482,17 +481,19 @@ final class CommunityFeatures implements Listener {
                         say(p, "Profile unavailable. Please retry later.");
                         return;
                       }
-                      Menu m = new Menu(p, Kind.PLAIN, "Profile · " + p.getName());
-                      int slot = 0;
+                      Menu m = new Menu(p, Kind.PROFILE, "Profile · " + p.getName());
+                      // Painted layout: balance medallion on slot 4, history card on rows 1-4.
+                      int slot = m.skinned ? 9 : 0;
                       for (var row : data.getAsJsonArray("history")) {
                         JsonObject r = row.getAsJsonObject();
                         String date =
                             DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")
                                 .withZone(ZoneId.of("Europe/Paris"))
                                 .format(Instant.ofEpochMilli(r.get("at").getAsLong()));
-                        m.put(
+                        m.place(
                             slot++,
                             Material.BOOK,
+                            "book",
                             r.get("event").getAsString(),
                             null,
                             date + " · " + r.get("server").getAsString(),
@@ -503,7 +504,7 @@ final class CommunityFeatures implements Listener {
                                 + data.get("currency").getAsString());
                       }
                       m.put(
-                          49,
+                          m.skinned ? 4 : 49,
                           Material.SUNFLOWER,
                           data.get("balance").getAsLong()
                               + " "

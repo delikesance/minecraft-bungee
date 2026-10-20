@@ -23,6 +23,15 @@ public class MenuPackTest {
     }
 
     @Test
+    public void requiredIsOptInAndCaseInsensitive() {
+        assertTrue(MenuPack.required("true"));
+        assertTrue(MenuPack.required(" TRUE "));
+        assertFalse(MenuPack.required(null));
+        assertFalse(MenuPack.required("yes"));
+        assertFalse(MenuPack.required(""));
+    }
+
+    @Test
     public void packIdIsStablePerRevision() {
         assertEquals(MenuPack.packId(SHA), MenuPack.packId(SHA));
         assertNotEquals(MenuPack.packId(SHA), MenuPack.packId("1".repeat(40)));

@@ -32,6 +32,8 @@ x-paper-env: &paper-env
   ARENA_REDIS_PASSWORD_FILE: /run/secrets/arena_redis_password
   ROLE_BRIDGE_URL: http://panel:8083
   # Public base URL clients download the optional menu resource pack from (/pack/<sha1>.zip on the panel).
+  # true: clients must accept the pack or are disconnected (off by default; needs a URL players can reach).
+  MENU_PACK_REQUIRED: ${MENU_PACK_REQUIRED:-false}
   MENU_PACK_BASE_URL: ${MENU_PACK_BASE_URL:-http://localhost:8080}
   MC_CONNECT_ADDRESS: ${MC_CONNECT_ADDRESS:-localhost:25565}
   # Paper reads the managed forwarding secret from config/paper-global.yml.

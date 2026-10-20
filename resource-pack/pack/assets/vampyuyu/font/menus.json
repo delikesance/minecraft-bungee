@@ -872,6 +872,438 @@
    "chars": [
     "\ue50f"
    ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_compass_00.png",
+   "ascent": 13,
+   "height": 37,
+   "chars": [
+    "\ue600"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_compass_01.png",
+   "ascent": 13,
+   "height": 37,
+   "chars": [
+    "\ue601"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_compass_02.png",
+   "ascent": 13,
+   "height": 37,
+   "chars": [
+    "\ue602"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_compass_03.png",
+   "ascent": 13,
+   "height": 37,
+   "chars": [
+    "\ue603"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_compass_10.png",
+   "ascent": -24,
+   "height": 37,
+   "chars": [
+    "\ue604"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_compass_11.png",
+   "ascent": -24,
+   "height": 37,
+   "chars": [
+    "\ue605"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_compass_12.png",
+   "ascent": -24,
+   "height": 37,
+   "chars": [
+    "\ue606"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_compass_13.png",
+   "ascent": -24,
+   "height": 37,
+   "chars": [
+    "\ue607"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_compass_20.png",
+   "ascent": -61,
+   "height": 37,
+   "chars": [
+    "\ue608"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_compass_21.png",
+   "ascent": -61,
+   "height": 37,
+   "chars": [
+    "\ue609"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_compass_22.png",
+   "ascent": -61,
+   "height": 37,
+   "chars": [
+    "\ue60a"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_compass_23.png",
+   "ascent": -61,
+   "height": 37,
+   "chars": [
+    "\ue60b"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_compass_30.png",
+   "ascent": -98,
+   "height": 37,
+   "chars": [
+    "\ue60c"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_compass_31.png",
+   "ascent": -98,
+   "height": 37,
+   "chars": [
+    "\ue60d"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_compass_32.png",
+   "ascent": -98,
+   "height": 37,
+   "chars": [
+    "\ue60e"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_compass_33.png",
+   "ascent": -98,
+   "height": 37,
+   "chars": [
+    "\ue60f"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_compass_40.png",
+   "ascent": -135,
+   "height": 37,
+   "chars": [
+    "\ue610"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_compass_41.png",
+   "ascent": -135,
+   "height": 37,
+   "chars": [
+    "\ue611"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_compass_42.png",
+   "ascent": -135,
+   "height": 37,
+   "chars": [
+    "\ue612"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_compass_43.png",
+   "ascent": -135,
+   "height": 37,
+   "chars": [
+    "\ue613"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_compass_50.png",
+   "ascent": -172,
+   "height": 37,
+   "chars": [
+    "\ue614"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_compass_51.png",
+   "ascent": -172,
+   "height": 37,
+   "chars": [
+    "\ue615"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_compass_52.png",
+   "ascent": -172,
+   "height": 37,
+   "chars": [
+    "\ue616"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_compass_53.png",
+   "ascent": -172,
+   "height": 37,
+   "chars": [
+    "\ue617"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_profile_00.png",
+   "ascent": 13,
+   "height": 37,
+   "chars": [
+    "\ue700"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_profile_01.png",
+   "ascent": 13,
+   "height": 37,
+   "chars": [
+    "\ue701"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_profile_02.png",
+   "ascent": 13,
+   "height": 37,
+   "chars": [
+    "\ue702"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_profile_03.png",
+   "ascent": 13,
+   "height": 37,
+   "chars": [
+    "\ue703"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_profile_10.png",
+   "ascent": -24,
+   "height": 37,
+   "chars": [
+    "\ue704"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_profile_11.png",
+   "ascent": -24,
+   "height": 37,
+   "chars": [
+    "\ue705"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_profile_12.png",
+   "ascent": -24,
+   "height": 37,
+   "chars": [
+    "\ue706"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_profile_13.png",
+   "ascent": -24,
+   "height": 37,
+   "chars": [
+    "\ue707"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_profile_20.png",
+   "ascent": -61,
+   "height": 37,
+   "chars": [
+    "\ue708"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_profile_21.png",
+   "ascent": -61,
+   "height": 37,
+   "chars": [
+    "\ue709"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_profile_22.png",
+   "ascent": -61,
+   "height": 37,
+   "chars": [
+    "\ue70a"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_profile_23.png",
+   "ascent": -61,
+   "height": 37,
+   "chars": [
+    "\ue70b"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_profile_30.png",
+   "ascent": -98,
+   "height": 37,
+   "chars": [
+    "\ue70c"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_profile_31.png",
+   "ascent": -98,
+   "height": 37,
+   "chars": [
+    "\ue70d"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_profile_32.png",
+   "ascent": -98,
+   "height": 37,
+   "chars": [
+    "\ue70e"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_profile_33.png",
+   "ascent": -98,
+   "height": 37,
+   "chars": [
+    "\ue70f"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_profile_40.png",
+   "ascent": -135,
+   "height": 37,
+   "chars": [
+    "\ue710"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_profile_41.png",
+   "ascent": -135,
+   "height": 37,
+   "chars": [
+    "\ue711"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_profile_42.png",
+   "ascent": -135,
+   "height": 37,
+   "chars": [
+    "\ue712"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_profile_43.png",
+   "ascent": -135,
+   "height": 37,
+   "chars": [
+    "\ue713"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_profile_50.png",
+   "ascent": -172,
+   "height": 37,
+   "chars": [
+    "\ue714"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_profile_51.png",
+   "ascent": -172,
+   "height": 37,
+   "chars": [
+    "\ue715"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_profile_52.png",
+   "ascent": -172,
+   "height": 37,
+   "chars": [
+    "\ue716"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_profile_53.png",
+   "ascent": -172,
+   "height": 37,
+   "chars": [
+    "\ue717"
+   ]
   }
  ]
 }

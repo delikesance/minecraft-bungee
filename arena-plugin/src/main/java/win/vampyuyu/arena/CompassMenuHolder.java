@@ -8,14 +8,16 @@ import org.bukkit.inventory.*;
 public final class CompassMenuHolder implements InventoryHolder {
   final UUID viewer;
   final String arenaId;
+  final boolean skinned;
   final Map<Integer, UUID> targets = new HashMap<>();
   final Map<Integer, String> abilities = new HashMap<>();
   private final Inventory inventory;
 
-  CompassMenuHolder(UUID viewer, String arenaId) {
+  CompassMenuHolder(UUID viewer, String arenaId, boolean skinned, Component title) {
     this.viewer = viewer;
     this.arenaId = arenaId;
-    inventory = Bukkit.createInventory(this, 54, Component.text("Vampyuyu · Arena compass"));
+    this.skinned = skinned;
+    inventory = Bukkit.createInventory(this, 54, title);
   }
 
   @Override

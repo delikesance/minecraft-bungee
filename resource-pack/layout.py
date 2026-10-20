@@ -17,6 +17,8 @@ BACKGROUNDS = {
     "menu_list":    (0xE300, 222, 6),
     "menu_detail":  (0xE400, 168, 4),
     "menu_confirm": (0xE500, 168, 4),
+    "menu_compass": (0xE600, 222, 6),
+    "menu_profile": (0xE700, 222, 6),
 }
 
 TILE_W = GUI_W // COLS   # 44 GUI px
