@@ -246,6 +246,22 @@ final class ArenaTools implements Listener {
             ? "§a★ Ready to start once " + c.minPlayers() + " players have joined."
             : "§c✘ Not ready: " + missing + ".");
     for (String line : lines) p.sendMessage(Component.text(line));
+    if (c.preset().equals("werewolf") && c.village().enabled())
+      plugin
+          .village
+          .problems(c)
+          .thenAccept(
+              found ->
+                  plugin.onPlayer(
+                      p,
+                      () -> {
+                        if (found.isEmpty())
+                          p.sendMessage(
+                              Component.text("§a✔ §fSafety check: every point and door is usable"));
+                        for (String problem : found)
+                          p.sendMessage(Component.text("§c✘ §f" + problem));
+                        return null;
+                      }));
   }
 
   private static String ok(boolean good, String text) {

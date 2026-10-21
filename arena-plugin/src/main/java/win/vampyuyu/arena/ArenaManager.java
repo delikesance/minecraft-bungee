@@ -456,6 +456,7 @@ public final class ArenaManager {
         (v, e) -> {
           if (e != null) {
             plugin.getLogger().warning("Village start failed: " + NexusArenaEngine.reason(e));
+            tell(s, "The game could not start: " + NexusArenaEngine.reason(e));
             stop(s.config.id(), "INTERRUPTED");
           }
         });
@@ -573,6 +574,7 @@ public final class ArenaManager {
         (v, e) -> {
           if (e != null) {
             plugin.getLogger().warning("Village transition failed: " + NexusArenaEngine.reason(e));
+            tell(s, "The game was interrupted: " + NexusArenaEngine.reason(e));
             stop(s.config.id(), "INTERRUPTED");
           }
         });
@@ -581,6 +583,14 @@ public final class ArenaManager {
         s.game instanceof WerewolfGame
             ? null
             : "Phase: " + s.game.phase() + ". Open your compass for the current actions.");
+  }
+
+  /** Tells every real participant why the game ended, before they are restored. */
+  private void tell(ArenaSession s, String message) {
+    for (UUID uuid : s.players.keySet()) {
+      Player p = Bukkit.getPlayer(uuid);
+      if (p != null) plugin.message(p, message);
+    }
   }
 
   private void update(ArenaSession s, String message) {

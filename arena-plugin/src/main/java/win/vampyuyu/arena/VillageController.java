@@ -44,6 +44,87 @@ final class VillageController {
     return f;
   }
 
+  private static final Set<Material> HAZARDS =
+      Set.of(
+          Material.LAVA,
+          Material.FIRE,
+          Material.SOUL_FIRE,
+          Material.MAGMA_BLOCK,
+          Material.CACTUS,
+          Material.CAMPFIRE,
+          Material.SOUL_CAMPFIRE,
+          Material.POWDER_SNOW,
+          Material.SWEET_BERRY_BUSH,
+          Material.WITHER_ROSE,
+          Material.NETHER_PORTAL,
+          Material.END_PORTAL,
+          Material.END_GATEWAY);
+
+  /** Why standing at this point would be unsafe, or null. Must run on the owning region thread. */
+  private static String unsafe(Location l) {
+    var feet = l.getBlock();
+    var head = feet.getRelative(0, 1, 0);
+    var floor = feet.getRelative(0, -1, 0);
+    if (!l.getWorld().getWorldBorder().isInside(l)) return "outside the world border";
+    if (!feet.isPassable() || feet.isLiquid()) return "feet are inside " + feet.getType().name();
+    if (!head.isPassable() || head.isLiquid()) return "head is inside " + head.getType().name();
+    if (!floor.getType().isSolid()) return "no solid floor (" + floor.getType().name() + " below)";
+    for (var block : java.util.List.of(feet, head, floor))
+      if (HAZARDS.contains(block.getType())) return "hazard " + block.getType().name();
+    return null;
+  }
+
+  private static String where(String what, double x, double y, double z) {
+    return String.format(java.util.Locale.ROOT, "%s (%.0f, %.0f, %.0f)", what, x, y, z);
+  }
+
+  /** Everything that would make a village start fail, found without moving anyone. */
+  CompletableFuture<List<String>> problems(ArenaConfig c) {
+    var village = c.village();
+    World w = Bukkit.getWorld(c.worldName());
+    if (w == null)
+      return CompletableFuture.completedFuture(List.of("World " + c.worldName() + " is not loaded"));
+    List<CompletableFuture<String>> checks = new ArrayList<>();
+    java.util.function.BiConsumer<String, ArenaConfig.Spawn> point =
+        (name, p) -> {
+          if (p == null) return;
+          checks.add(
+              region(
+                  w,
+                  (int) Math.floor(p.x()),
+                  (int) Math.floor(p.z()),
+                  () -> {
+                    String why = unsafe(new Location(w, p.x(), p.y(), p.z()));
+                    return why == null ? null : where(name, p.x(), p.y(), p.z()) + ": " + why;
+                  }));
+        };
+    village.houses().entrySet().stream()
+        .sorted(Map.Entry.comparingByKey())
+        .forEach(e -> point.accept("House " + e.getKey(), e.getValue()));
+    point.accept("Wolf meeting point", village.meeting());
+    point.accept("Day point", village.daypoint());
+    for (var d : village.doors())
+      checks.add(
+          region(
+              w,
+              d.x(),
+              d.z(),
+              () -> {
+                var block = w.getBlockAt(d.x(), d.y(), d.z());
+                var upper = block.getRelative(0, 1, 0);
+                boolean whole =
+                    block.getBlockData() instanceof Door door
+                        && door.getHalf() == Bisected.Half.BOTTOM
+                        && upper.getType() == block.getType()
+                        && upper.getBlockData() instanceof Door top
+                        && top.getHalf() == Bisected.Half.TOP;
+                return whole ? null : where("Door", d.x(), d.y(), d.z()) + ": not a complete door";
+              }));
+    return CompletableFuture.allOf(checks.toArray(CompletableFuture[]::new))
+        .thenApply(
+            v -> checks.stream().map(CompletableFuture::join).filter(Objects::nonNull).toList());
+  }
+
   private Path path(String id) {
     return directory.resolve(id + ".json");
   }
@@ -63,6 +144,21 @@ final class VillageController {
     World w = Bukkit.getWorld(s.config.worldName());
     if (w == null)
       return CompletableFuture.failedFuture(new IllegalArgumentException("World unavailable"));
+    return problems(s.config)
+        .thenCompose(
+            found -> {
+              if (!found.isEmpty())
+                return CompletableFuture.<Void>failedFuture(
+                    new IllegalArgumentException(
+                        "Village setup problems: "
+                            + String.join("; ", found.stream().limit(4).toList())
+                            + (found.size() > 4 ? " (+" + (found.size() - 4) + " more)" : "")));
+              return journal(s, w);
+            });
+  }
+
+  private CompletableFuture<Void> journal(ArenaSession s, World w) {
+    var village = s.config.village();
     List<CompletableFuture<SavedDoor>> reads = new ArrayList<>();
     for (var d : village.doors())
       reads.add(
@@ -265,33 +361,9 @@ final class VillageController {
                   l.getBlockX(),
                   l.getBlockZ(),
                   () -> {
-                    var feet = l.getBlock();
-                    var head = feet.getRelative(0, 1, 0);
-                    var floor = feet.getRelative(0, -1, 0);
-                    Set<Material> hazards =
-                        Set.of(
-                            Material.LAVA,
-                            Material.FIRE,
-                            Material.SOUL_FIRE,
-                            Material.MAGMA_BLOCK,
-                            Material.CACTUS,
-                            Material.CAMPFIRE,
-                            Material.SOUL_CAMPFIRE,
-                            Material.POWDER_SNOW,
-                            Material.SWEET_BERRY_BUSH,
-                            Material.WITHER_ROSE,
-                            Material.NETHER_PORTAL,
-                            Material.END_PORTAL,
-                            Material.END_GATEWAY);
-                    if (!l.getWorld().getWorldBorder().isInside(l)
-                        || !feet.isPassable()
-                        || !head.isPassable()
-                        || feet.isLiquid()
-                        || head.isLiquid()
-                        || !floor.getType().isSolid()
-                        || java.util.stream.Stream.of(feet, head, floor)
-                            .anyMatch(block -> hazards.contains(block.getType())))
-                      throw new IllegalArgumentException("Unsafe village destination");
+                    String problem = unsafe(l);
+                    if (problem != null)
+                      throw new IllegalArgumentException("Unsafe village destination: " + problem);
                     return l;
                   });
             })
