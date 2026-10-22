@@ -10,6 +10,12 @@ public final class ArenaSession {
   public volatile GamePreset game;
   public volatile long startedAt, phaseEndsAt;
   public volatile String observedPhase = "WAITING";
+
+  /** The Werewolf turn last seen by the clock (see {@link WerewolfGame#turnKey()}). */
+  volatile String observedTurn = "";
+
+  /** The practice bots of the current game, or null without bots. */
+  volatile WerewolfBots botBrain;
   public volatile boolean stopping;
   final Map<UUID, ArenaConfig.Spawn> homes = new ConcurrentHashMap<>();
   final Map<UUID, String> roster = new ConcurrentHashMap<>();
