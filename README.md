@@ -124,15 +124,19 @@ Lobby and Survival were aligned from 1.21.4 to 1.21.9 in copies of their existin
 
 ## Production deployment
 
-GitHub Actions checks Go, the frontend, dependency advisories, Compose, and Docker builds on PRs. A passing push to `main` publishes five GHCR images:
+GitHub Actions checks only what a change touches: Go tests, the frontend and its advisories, the archive/pack scripts, Compose, and the Paper plugins that changed (each through its Dockerfile stage). A change to the `Dockerfile` or the workflow checks everything, including every image. `check` is the single status to require on `main`.
+
+A passing push to `main` publishes five GHCR images, each tagged with its **content tag** and the commit SHA:
 
 ```text
-ghcr.io/garder500/minecraft-bungee-panel:<40-character-commit-sha>
-ghcr.io/garder500/minecraft-bungee-controller:<40-character-commit-sha>
-ghcr.io/garder500/minecraft-bungee-server:<40-character-commit-sha>
-ghcr.io/garder500/minecraft-bungee-lobby:<40-character-commit-sha>
-ghcr.io/garder500/minecraft-bungee-tools:<40-character-commit-sha>
+ghcr.io/delikesance/minecraft-bungee-panel:src-<hash>       and :<40-character-commit-sha>
+ghcr.io/delikesance/minecraft-bungee-controller:src-<hash>
+ghcr.io/delikesance/minecraft-bungee-server:src-<hash>
+ghcr.io/delikesance/minecraft-bungee-lobby:src-<hash>
+ghcr.io/delikesance/minecraft-bungee-tools:src-<hash>
 ```
+
+`scripts/image-tag.sh <target> [commit]` hashes every tracked file that image's build reads. When a commit leaves them unchanged, CI does not rebuild the image: it adds the commit tag to the existing one in seconds. A plugin change therefore rebuilds only the server and lobby images, and a dashboard change only the panel. Maven dependencies sit in their own Docker layer, so a source-only plugin change does not download them again.
 
 Production Compose never builds source. Tags select exact commits; no `latest` tag is used. For immutable deployment enforcement beyond tag convention, record registry digests in release records. Third-party runtime/build images are pinned by digest; Minecraft and Velocity versions **and builds** are separately pinned. Builds currently publish `linux/amd64`; verify `uname -m` is `x86_64`. Maven's Paper API snapshot is build-time-only; runtime server versions do not follow it.
 
@@ -140,12 +144,12 @@ On the production host, clone this repository **using SSH**, check out the relea
 
 - `STACK_ID=vampyuyu-prod`, actual UID/GID/socket group, and production data paths.
 - Reviewed Minecraft/Java images and versions matching the Creative archive.
-- `IMAGE_REPOSITORY=ghcr.io/garder500/minecraft-bungee` and the published full commit SHA as `IMAGE_TAG`.
+- `IMAGE_REPOSITORY=ghcr.io/delikesance/minecraft-bungee` and the published full commit SHA as `IMAGE_TAG` (automatic deployments then manage it, see below).
 - `PUBLIC_ORIGIN=https://panel.vampyuyu.win` and `MC_BIND=0.0.0.0`.
 - Heap sizes/container limits suitable for the host; defaults reserve roughly 4 GB outside container limits, plus unused heap headroom. `MAX_PLAYERS=40` is a configurable admission cap, not a performance guarantee.
 - `EULA=TRUE` only after explicit acceptance.
 
-If GHCR packages are private, use `docker login ghcr.io` with a read-packages credential. Grant the repository Actions workflow package publishing permissions. No deployment or DNS changes happen automatically.
+If GHCR packages are private, use `docker login ghcr.io` with a read-packages credential. Grant the repository Actions workflow package publishing permissions. DNS never changes automatically; deployments do once configured (next section).
 
 ```bash
 docker compose -f compose.prod.yaml pull
@@ -173,6 +177,23 @@ unset admin_password
 ```
 
 If the administrator password is lost, stop the panel, back up SQLite, and perform an explicitly reviewed offline reset. The bootstrap command refuses to replace an existing administrator.
+
+### Automatic deployment
+
+After publishing, the `deploy` job connects to the production host over SSH, checks out the merged commit in the existing clone and runs `scripts/deploy.sh <commit>`. That script backs up `.env` to `.env.previous`, writes `IMAGE_TAG` and each image's content tag (`PANEL_IMAGE_TAG`, `CONTROLLER_IMAGE_TAG`, `SERVER_IMAGE_TAG`, `LOBBY_IMAGE_TAG`, `TOOLS_IMAGE_TAG`), runs the `scripts/up.sh` checks, pulls, and recreates **only** the services whose image or Compose definition changed, plus those whose mounted file in `infra/` changed. A running game server whose image changed restarts (its players are disconnected); a stopped one stays stopped and uses the new image at its next start. The first automatic deployment moves every service from commit tags to content tags, so it recreates them all once.
+
+Set these repository (or `production` environment) secrets; until `DEPLOY_HOST` is set the job only warns:
+
+| Secret | Value |
+| --- | --- |
+| `DEPLOY_HOST` | Host name or IP of the production server |
+| `DEPLOY_PORT` | SSH port (optional, default 22) |
+| `DEPLOY_USER` | Account that owns the clone and can run `docker` |
+| `DEPLOY_PATH` | Absolute path of the clone, e.g. `/srv/minecraft-bungee` |
+| `DEPLOY_SSH_KEY` | Private key of a dedicated key pair whose public key is in that account's `authorized_keys` |
+| `DEPLOY_KNOWN_HOSTS` | Output of `ssh-keyscan -p <port> <host>`, checked against the host's real fingerprint |
+
+The clone must be able to `git fetch` (deploy key) and pull from GHCR. Run the workflow manually (**Actions → Check, publish and deploy → Run workflow** on `main`) to redeploy. To roll back, on the host: `git checkout --detach <older-commit> && ./scripts/deploy.sh <older-commit>`, subject to the compatibility rules below.
 
 ## Player roles, command access, TAB, and server icon
 

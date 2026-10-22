@@ -2,6 +2,8 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 compose=${1:-compose.local.yaml}
+# --check validates the configuration only; scripts/deploy.sh runs it before switching images.
+check_only=${2:-}
 [[ "$compose" == compose.prod.yaml || "$compose" == compose.local.yaml ]] || { echo 'Invalid Compose file' >&2; exit 1; }
 config=$(docker compose -f "$compose" config --format json)
 python3 -c '
@@ -10,7 +12,7 @@ c=json.load(sys.stdin);s=c["services"]
 if s["creative"]["environment"]["EULA"].upper()!="TRUE":sys.exit("Set EULA=TRUE after accepting the Minecraft EULA")
 if "caddy" in s:
  if platform.machine()!="x86_64":sys.exit("Production images currently target linux/amd64")
- if not re.fullmatch(r".*:[0-9a-f]{40}",s["panel"]["image"]):sys.exit("Set IMAGE_TAG to a published 40-character commit SHA")
+ if not re.fullmatch(r".*:(src-)?[0-9a-f]{40}",s["panel"]["image"]):sys.exit("Set IMAGE_TAG to a published 40-character commit SHA")
  if not s["panel"]["environment"]["PUBLIC_ORIGIN"].startswith("https://"):sys.exit("Production PUBLIC_ORIGIN must use HTTPS")
 for name in ("lobby","creative","survival"):
  service=s[name];version=service["environment"]["VERSION"]
@@ -19,6 +21,7 @@ for name in ("lobby","creative","survival"):
  if not marker.exists() or marker.read_text().strip()!=version:sys.exit(name+": run offline configure with the selected Minecraft version first")
  if not (data/"config/paper-global.yml").is_file():sys.exit(name+": forwarding configuration missing")
 ' <<< "$config"
+[[ "$check_only" == --check ]] && exit 0
 if [[ "$compose" == compose.local.yaml ]]; then
  docker compose -f "$compose" up -d --build
 else
