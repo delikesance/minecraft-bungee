@@ -182,16 +182,16 @@ If the administrator password is lost, stop the panel, back up SQLite, and perfo
 
 After publishing, the `deploy` job connects to the production host over SSH, checks out the merged commit in the existing clone and runs `scripts/deploy.sh <commit>`. That script backs up `.env` to `.env.previous`, writes `IMAGE_TAG` and each image's content tag (`PANEL_IMAGE_TAG`, `CONTROLLER_IMAGE_TAG`, `SERVER_IMAGE_TAG`, `LOBBY_IMAGE_TAG`, `TOOLS_IMAGE_TAG`), runs the `scripts/up.sh` checks, pulls, and recreates **only** the services whose image or Compose definition changed, plus those whose mounted file in `infra/` changed. A running game server whose image changed restarts (its players are disconnected); a stopped one stays stopped and uses the new image at its next start. The first automatic deployment moves every service from commit tags to content tags, so it recreates them all once.
 
-Set these repository (or `production` environment) secrets; until `DEPLOY_HOST` is set the job only warns:
+Configure it in **Settings → Secrets and variables → Actions** (repository level, or on the `production` environment). Until the `DEPLOY_HOST` variable is set, the job only warns.
 
-| Secret | Value |
-| --- | --- |
-| `DEPLOY_HOST` | Host name or IP of the production server |
-| `DEPLOY_PORT` | SSH port (optional, default 22) |
-| `DEPLOY_USER` | Account that owns the clone and can run `docker` |
-| `DEPLOY_PATH` | Absolute path of the clone, e.g. `/srv/minecraft-bungee` |
-| `DEPLOY_SSH_KEY` | Private key of a dedicated key pair whose public key is in that account's `authorized_keys` |
-| `DEPLOY_KNOWN_HOSTS` | Output of `ssh-keyscan -p <port> <host>`, checked against the host's real fingerprint |
+| Name | Kind | Value |
+| --- | --- | --- |
+| `DEPLOY_HOST` | variable | Host name or IP of the production server |
+| `DEPLOY_PORT` | variable | SSH port (optional, default 22) |
+| `DEPLOY_USER` | variable | Account that owns the clone and can run `docker` |
+| `DEPLOY_PATH` | variable | Absolute path of the clone, e.g. `/srv/minecraft-bungee` |
+| `DEPLOY_KNOWN_HOSTS` | variable | Output of `ssh-keyscan -p <port> <host>`, checked against the host's real fingerprint |
+| `DEPLOY_SSH_KEY` | **secret** | Private key of a dedicated key pair whose public key is in that account's `authorized_keys` |
 
 The clone must be able to `git fetch` (deploy key) and pull from GHCR. Run the workflow manually (**Actions → Check, publish and deploy → Run workflow** on `main`) to redeploy. To roll back, on the host: `git checkout --detach <older-commit> && ./scripts/deploy.sh <older-commit>`, subject to the compatibility rules below.
 

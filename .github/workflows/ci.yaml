@@ -204,7 +204,8 @@ jobs:
             org.opencontainers.image.revision=${{ github.sha }}
           cache-from: type=gha,scope=${{ matrix.target }}
           cache-to: type=gha,mode=max,scope=${{ matrix.target }}
-  # Runs scripts/deploy.sh on the production host. Skipped with a warning until DEPLOY_HOST is set.
+  # Runs scripts/deploy.sh on the production host. Connection settings are Actions variables; only the
+  # SSH key is a secret. Skipped with a warning until the DEPLOY_HOST variable is set.
   deploy:
     needs: publish
     if: ${{ !cancelled() && needs.publish.result == 'success' }}
@@ -216,16 +217,16 @@ jobs:
     steps:
       - name: Deploy over SSH
         env:
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
-          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
-          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ vars.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
           DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
-          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_KNOWN_HOSTS: ${{ vars.DEPLOY_KNOWN_HOSTS }}
           SHA: ${{ github.sha }}
         run: |
           if [[ -z $DEPLOY_HOST ]]; then
-            echo "::warning::DEPLOY_HOST is not set: images are published but the server was not updated."
+            echo "::warning::The DEPLOY_HOST variable is not set: images are published but the server was not updated."
             exit 0
           fi
           install -d -m 700 ~/.ssh
