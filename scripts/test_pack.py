@@ -87,11 +87,12 @@ class PackTest(unittest.TestCase):
     def test_plugin_uses_the_pack_codepoints_and_icons(self):
         java = ROOT / "arena-plugin/src/main/java/win/vampyuyu/arena"
         menus = (java / "WerewolfMenus.java").read_text()
-        for name in [n for n in layout.BACKGROUNDS if n in menus]:
-            match = re.search(r'"%s", \'\\u([0-9A-F]{4})\'' % name, menus)
-            self.assertIsNotNone(match, name)
-            self.assertEqual(int(match.group(1), 16), layout.BACKGROUNDS[name][0], name)
-        self.assertEqual(7, sum(name in menus for name in layout.BACKGROUNDS))
+        role_menus = re.findall(r'"(menu_\w+)", \'\\u([0-9A-F]{4})\'', menus)
+        self.assertEqual(7, len(role_menus))
+        for name, code in role_menus:
+            self.assertEqual(int(code, 16), layout.BACKGROUNDS[name][0], name)
+        village = re.search(r"VILLAGE = '\\u([0-9A-F]{4})'", menus)
+        self.assertEqual(int(village.group(1), 16), layout.BACKGROUNDS["menu_village"][0])
         hud = (java / "WerewolfHud.java").read_text()
         self.assertIn("List.of(%s)" % ", ".join(f'"{c}"' for c in layout.CARDS), " ".join(hud.split()).replace("( ", "("))
         icons = {p.stem for p in (PACK / "assets/vampyuyu/items/icon").glob("*.json")}
@@ -107,6 +108,28 @@ class PackTest(unittest.TestCase):
         model = json.loads((PACK / "assets/vampyuyu/models/item/blank.json").read_text())
         self.assertEqual(model["textures"]["layer0"], "vampyuyu:item/blank")
         self.assertTrue((PACK / "assets/vampyuyu/textures/item/blank.png").is_file())
+
+    def test_every_werewolf_sound_the_plugin_plays_is_in_the_pack(self):
+        sounds = json.loads((PACK / "assets/vampyuyu/sounds.json").read_text())
+        subtitles = json.loads((PACK / "assets/vampyuyu/lang/en_us.json").read_text())
+        java = ROOT / "arena-plugin/src/main/java/win/vampyuyu/arena"
+        ambience = (java / "WerewolfAmbience.java").read_text()
+        presentation = (java / "WerewolfPresentation.java").read_text()
+        clicks = presentation[presentation.index("static String actionSound"):]
+        clicks = clicks[: clicks.index("\n  }\n")]
+        played = set(re.findall(r'cue\(\s*\w+,\s*"(\w+)"', ambience)) | set(re.findall(r'"(\w+)"\s*[:;]', clicks))
+        played |= {"music"}
+        self.assertGreaterEqual(len(played), 13, played)
+        for name in played:
+            entry = sounds.get(f"werewolf.{name}")
+            self.assertIsNotNone(entry, name)
+            self.assertIn(entry["subtitle"], subtitles)
+            for sound in entry["sounds"]:
+                path = PACK / "assets/vampyuyu/sounds" / (sound["name"].split(":", 1)[1] + ".ogg")
+                self.assertTrue(path.is_file(), path)
+                self.assertEqual(path.read_bytes()[:4], b"OggS", path)
+        self.assertIn('Key.key("vampyuyu", "werewolf.music")', ambience)
+        self.assertTrue(sounds["werewolf.music"]["sounds"][0]["stream"])
 
     def test_build_is_reproducible_and_complete(self):
         with tempfile.TemporaryDirectory() as a, tempfile.TemporaryDirectory() as b:

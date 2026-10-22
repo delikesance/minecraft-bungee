@@ -3032,6 +3032,222 @@
    "chars": [
     "\uef17"
    ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_village_00.png",
+   "ascent": 13,
+   "height": 37,
+   "chars": [
+    "\uf000"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_village_01.png",
+   "ascent": 13,
+   "height": 37,
+   "chars": [
+    "\uf001"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_village_02.png",
+   "ascent": 13,
+   "height": 37,
+   "chars": [
+    "\uf002"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_village_03.png",
+   "ascent": 13,
+   "height": 37,
+   "chars": [
+    "\uf003"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_village_10.png",
+   "ascent": -24,
+   "height": 37,
+   "chars": [
+    "\uf004"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_village_11.png",
+   "ascent": -24,
+   "height": 37,
+   "chars": [
+    "\uf005"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_village_12.png",
+   "ascent": -24,
+   "height": 37,
+   "chars": [
+    "\uf006"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_village_13.png",
+   "ascent": -24,
+   "height": 37,
+   "chars": [
+    "\uf007"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_village_20.png",
+   "ascent": -61,
+   "height": 37,
+   "chars": [
+    "\uf008"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_village_21.png",
+   "ascent": -61,
+   "height": 37,
+   "chars": [
+    "\uf009"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_village_22.png",
+   "ascent": -61,
+   "height": 37,
+   "chars": [
+    "\uf00a"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_village_23.png",
+   "ascent": -61,
+   "height": 37,
+   "chars": [
+    "\uf00b"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_village_30.png",
+   "ascent": -98,
+   "height": 37,
+   "chars": [
+    "\uf00c"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_village_31.png",
+   "ascent": -98,
+   "height": 37,
+   "chars": [
+    "\uf00d"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_village_32.png",
+   "ascent": -98,
+   "height": 37,
+   "chars": [
+    "\uf00e"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_village_33.png",
+   "ascent": -98,
+   "height": 37,
+   "chars": [
+    "\uf00f"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_village_40.png",
+   "ascent": -135,
+   "height": 37,
+   "chars": [
+    "\uf010"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_village_41.png",
+   "ascent": -135,
+   "height": 37,
+   "chars": [
+    "\uf011"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_village_42.png",
+   "ascent": -135,
+   "height": 37,
+   "chars": [
+    "\uf012"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_village_43.png",
+   "ascent": -135,
+   "height": 37,
+   "chars": [
+    "\uf013"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_village_50.png",
+   "ascent": -172,
+   "height": 37,
+   "chars": [
+    "\uf014"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_village_51.png",
+   "ascent": -172,
+   "height": 37,
+   "chars": [
+    "\uf015"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_village_52.png",
+   "ascent": -172,
+   "height": 37,
+   "chars": [
+    "\uf016"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/menu_village_53.png",
+   "ascent": -172,
+   "height": 37,
+   "chars": [
+    "\uf017"
+   ]
   }
  ]
 }

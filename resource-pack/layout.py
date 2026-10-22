@@ -28,6 +28,7 @@ BACKGROUNDS = {
     "menu_guard":   (0xED00, 222, 6),
     "menu_lovers":  (0xEE00, 222, 6),
     "menu_shot":    (0xEF00, 222, 6),
+    "menu_village": (0xF000, 222, 6),   # overview when no role menu applies: WerewolfMenus.VILLAGE
 }
 
 # Role cards drawn as glyphs of the vampyuyu:hud font (plugin: WerewolfHud.glyph): the back and

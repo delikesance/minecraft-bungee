@@ -92,6 +92,52 @@ final class WerewolfPresentation {
     }
   }
 
+  record Line(String text, int color) {}
+
+  /**
+   * Line under the crosshair for the whole turn: whose turn it is and the time left. The narrator
+   * announces every turn in the chat, so sleepers may know it too. Null once the game is over.
+   */
+  static Line center(WerewolfGame game, UUID viewer, long seconds) {
+    synchronized (game) {
+      String phase = game.phase();
+      if (phase.equals("FINISHED")) return null;
+      String time = " · " + clock(seconds);
+      String role = turnRole(phase);
+      if (role == null)
+        return phase.equals("DAY_VOTE")
+            ? new Line("☀ Village vote" + time, VOTE)
+            : new Line("☀ Debate" + time, VILLAGER);
+      String moon = game.night() ? "☾ " : "☀ ";
+      if (game.actors().contains(viewer)) return new Line(moon + "Your turn" + time, color(role));
+      String turn =
+          switch (phase) {
+            case "NIGHT" -> "The Werewolves' turn";
+            case "HUNTER_SHOT" -> "The Hunter's last shot";
+            default -> "The " + roleName(role) + "'s turn";
+          };
+      return new Line(moon + turn + time, color(role));
+    }
+  }
+
+  /**
+   * Pack sound for a successful menu click, or null for the plain click. Hunter shots are heard by
+   * everyone when the death is announced, so the click itself stays quiet.
+   */
+  static String actionSound(String role, String click) {
+    return switch (role) {
+      case "WITCH" ->
+          click.equals("use:heal")
+              ? "potion_life"
+              : click.equals("use:poison") || click.startsWith("select:") ? "potion_death" : null;
+      case "SEER" -> click.startsWith("select:") ? "vision" : null;
+      case "CUPID" -> click.equals("use:bind") ? "bind" : null;
+      case "GUARD" ->
+          click.startsWith("select:") || click.equals("use:protect-self") ? "protect" : null;
+      default -> null;
+    };
+  }
+
   /** True when this player must act now: their menu opens by itself and cannot be closed. */
   static boolean menuRequired(WerewolfGame game, UUID id) {
     synchronized (game) {

@@ -343,6 +343,7 @@ ROLE_MENUS = {
     "menu_guard":   ("guard", "THE GUARD", "#6cc6ff", [(0, 4, "LAST NIGHT", None), (5, 4, "PROTECT ME", "#6cc6ff")]),
     "menu_lovers":  ("cupid", "THE LOVERS", "#ff8fc0", [(0, 5, "THE LOVERS", None), (6, 3, "BIND", "#ff8fc0")]),
     "menu_shot":    ("hunter", "LAST SHOT", "#f0a050", [(0, 5, "YOUR TARGET", None), (6, 3, "SHOOT", "#f0a050")]),
+    "menu_village": ("village", "THE VILLAGE", "#e9d99b", [(0, 4, "THE GAME", None), (5, 4, "THE VILLAGE", None)]),
 }
 RING = [2, 3, 4, 5, 6, 16, 25, 34, 43, 51, 50, 49, 48, 47, 37, 28, 19, 10]  # plugin: WerewolfMenus.RING
 

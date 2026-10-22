@@ -109,6 +109,21 @@ public final class CompassGUI implements Listener {
       render(holder, p, s);
       return;
     }
+    if (s.config.preset().equals("werewolf")
+        && (s.game == null || s.game instanceof WerewolfGame)) {
+      CompassMenuHolder holder =
+          new CompassMenuHolder(
+              p.getUniqueId(),
+              s.config.id(),
+              skinned,
+              skinned
+                  ? MenuSkin.title(WerewolfMenus.VILLAGE, MenuSkin.ROWS_54, Component.empty())
+                  : Component.text("The village", TextColor.color(WerewolfPresentation.VILLAGER)));
+      holder.village = true;
+      p.openInventory(holder.getInventory());
+      render(holder, p, s);
+      return;
+    }
     boolean voting =
         s.game != null
             && (s.game.phase().equals("DAY_VOTE")
@@ -190,7 +205,10 @@ public final class CompassGUI implements Listener {
         if (s.game instanceof WerewolfGame wolf
             && WerewolfMenus.kind(wolf, p.getUniqueId()) != null) open(p);
         else p.closeInventory();
-      } else render(holder, p, s);
+      } else if (holder.village
+          && s.game instanceof WerewolfGame wolf
+          && WerewolfMenus.kind(wolf, p.getUniqueId()) != null) open(p); // Your turn now.
+      else render(holder, p, s);
     }
   }
 
@@ -248,6 +266,10 @@ public final class CompassGUI implements Listener {
   private void render(CompassMenuHolder holder, Player p, ArenaSession s) {
     if (holder.kind != null && s.game instanceof WerewolfGame wolf) {
       renderRole(holder, p, s, wolf);
+      return;
+    }
+    if (holder.village) {
+      renderVillage(holder, p, s);
       return;
     }
     Inventory inv = holder.getInventory();
@@ -416,6 +438,36 @@ public final class CompassGUI implements Listener {
     }
   }
 
+  /** The village overview: who is alive, the game, the village, and the usual hotbar. */
+  private void renderVillage(CompassMenuHolder holder, Player p, ArenaSession s) {
+    Inventory inv = holder.getInventory();
+    holder.targets.clear();
+    holder.abilities.clear();
+    holder.clicks.clear();
+    holder.leaveSlot = -1;
+    holder.phase = s.game == null ? "" : s.game.phase();
+    inv.clear();
+    clearBottom(p);
+    long seconds =
+        s.game == null ? 0 : Math.max(0, (s.phaseEndsAt - System.currentTimeMillis() + 999) / 1000);
+    for (var entry :
+        WerewolfMenus.village(
+            s.game instanceof WerewolfGame wolf ? wolf : null,
+            p.getUniqueId(),
+            s.players,
+            s.config.name(),
+            seconds,
+            plugin.arenas.leaveBlocked(p.getUniqueId()))) {
+      // Before the deal the compass still sits in hotbar slot 9: the lock moves next to it.
+      int raw =
+          entry.raw() == WerewolfMenus.LOCK && compass(p.getInventory().getItem(8))
+              ? WerewolfMenus.LOCK - 1
+              : entry.raw();
+      place(inv, p, raw, item(holder, entry));
+      if (entry.click() != null) holder.clicks.put(raw, entry.click());
+    }
+  }
+
   static Component line(WerewolfMenus.Line line) {
     return line.text().isEmpty()
         ? Component.empty()
@@ -535,7 +587,11 @@ public final class CompassGUI implements Listener {
                       ? wolf.aim(p.getUniqueId(), UUID.fromString(click.substring(4)))
                       : wolf.use(p.getUniqueId(), click.substring(4));
           p.sendMessage(whisper(friendly(response, s), color));
-          p.playSound(p.getLocation(), Sound.UI_BUTTON_CLICK, SoundCategory.MASTER, .35f, 1.3f);
+          String cue = WerewolfPresentation.actionSound(wolf.role(p.getUniqueId()), click);
+          if (cue != null && s.config.werewolf().ambienceEnabled())
+            WerewolfAmbience.cue(plugin, p, cue, Sound.UI_BUTTON_CLICK, .35f, 1.3f);
+          else
+            p.playSound(p.getLocation(), Sound.UI_BUTTON_CLICK, SoundCategory.MASTER, .35f, 1.3f);
           deliverNotices(s);
           plugin.arenas.phaseChanged(s);
           refresh(p);

@@ -285,4 +285,48 @@ public class WerewolfMenusTest {
     var g = game(Map.of("WEREWOLF", 2, "SEER", 1));
     assertEquals(Map.of("VILLAGER", 7, "WEREWOLF", 2, "SEER", 1), g.composition());
   }
+
+  @Test
+  public void theVillageOverviewShowsTheLivingAndNeedsNoClick() {
+    var g = game(Map.of("WEREWOLF", 2, "SEER", 1));
+    phase(g, "DISCUSSION");
+    UUID villager = role(g, "VILLAGER");
+    g.remove(role(g, "SEER"));
+    var menu = WerewolfMenus.village(g, villager, names(), "Hollow", 30, true);
+    long heads = menu.stream().filter(e -> e.raw() < 54).count();
+    assertEquals(g.alive().size(), heads);
+    for (var e : menu) assertNull(e.raw() + " is not a button", e.click());
+    assertEquals("card-villager", at(menu, WerewolfMenus.box(1)).icon());
+    assertEquals(9, at(menu, WerewolfMenus.box(6)).amount());
+    assertEquals(10, at(menu, WerewolfMenus.box(7)).amount());
+    assertEquals("card-villager", at(menu, WerewolfMenus.CARD).icon());
+    assertEquals(
+        "leave",
+        at(WerewolfMenus.village(g, villager, names(), "Hollow", 30, false), WerewolfMenus.LOCK)
+            .click());
+  }
+
+  @Test
+  public void wolvesAndLoversRecogniseEachOtherInTheOverviewOnly() {
+    var g = game(Map.of("WEREWOLF", 2, "SEER", 1));
+    phase(g, "DISCUSSION");
+    List<UUID> wolves = ids().stream().filter(p -> g.role(p).equals("WEREWOLF")).toList();
+    var wolfView = WerewolfMenus.village(g, wolves.get(0), names(), "Hollow", 30, true);
+    var mate =
+        wolfView.stream().filter(e -> wolves.get(1).equals(e.head())).findFirst().orElseThrow();
+    assertEquals("A wolf of your pack", mate.lines().get(1).text());
+    var villagerView = WerewolfMenus.village(g, role(g, "VILLAGER"), names(), "Hollow", 30, true);
+    var same =
+        villagerView.stream().filter(e -> wolves.get(1).equals(e.head())).findFirst().orElseThrow();
+    assertEquals("Alive", same.lines().get(1).text());
+  }
+
+  @Test
+  public void beforeTheDealTheOverviewListsEveryoneWithACardBackAndNoTimer() {
+    var menu = WerewolfMenus.village(null, ids().get(0), names(), "Hollow", 0, false);
+    assertEquals(ids().size(), menu.stream().filter(e -> e.raw() < 54).count());
+    assertEquals("card-back", at(menu, WerewolfMenus.CARD).icon());
+    assertNull(at(menu, WerewolfMenus.TIMER));
+    assertEquals("leave", at(menu, WerewolfMenus.LOCK).click());
+  }
 }
