@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Structural checks for resource-pack/pack that do not need a Minecraft client."""
-import hashlib, json, pathlib, struct, sys, tempfile, unittest
+import hashlib, json, pathlib, re, struct, sys, tempfile, unittest
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 PACK = ROOT / "resource-pack" / "pack"
@@ -69,6 +69,37 @@ class PackTest(unittest.TestCase):
             self.assertEqual(definition["model"]["model"], f"vampyuyu:item/icon/{name}")
             model = json.loads((PACK / f"assets/vampyuyu/models/item/icon/{name}.json").read_text())
             self.assertEqual(model["textures"]["layer0"], f"vampyuyu:item/icon/{name}")
+
+    def test_role_cards_are_hud_glyphs_with_dead_versions(self):
+        font = json.loads((PACK / "assets/vampyuyu/font/hud.json").read_text())
+        glyphs = {ord(p["chars"][0]): p for p in font["providers"]}
+        for i, role in enumerate(layout.CARDS):
+            for code, suffix in [(layout.CARD_BASE + i, "")] + ([] if role == "back" else [(layout.CARD_BASE + layout.CARD_DEAD + i, "-dead")]):
+                provider = glyphs.pop(code)
+                self.assertEqual(provider["file"], f"vampyuyu:font/card/{role}{suffix}.png")
+                self.assertEqual((provider["height"], provider["ascent"]), (layout.CARD_HEIGHT, layout.CARD_ASCENT))
+                width, height = png_size(PACK / "assets/vampyuyu/textures/font/card" / f"{role}{suffix}.png")
+                self.assertEqual(width, height)
+                self.assertLessEqual(width, 256)
+            self.assertTrue((PACK / f"assets/vampyuyu/items/icon/card-{role}.json").is_file(), role)
+        self.assertEqual(glyphs, {})
+
+    def test_plugin_uses_the_pack_codepoints_and_icons(self):
+        java = ROOT / "arena-plugin/src/main/java/win/vampyuyu/arena"
+        menus = (java / "WerewolfMenus.java").read_text()
+        for name in [n for n in layout.BACKGROUNDS if n in menus]:
+            match = re.search(r'"%s", \'\\u([0-9A-F]{4})\'' % name, menus)
+            self.assertIsNotNone(match, name)
+            self.assertEqual(int(match.group(1), 16), layout.BACKGROUNDS[name][0], name)
+        self.assertEqual(7, sum(name in menus for name in layout.BACKGROUNDS))
+        hud = (java / "WerewolfHud.java").read_text()
+        self.assertIn("List.of(%s)" % ", ".join(f'"{c}"' for c in layout.CARDS), " ".join(hud.split()).replace("( ", "("))
+        icons = {p.stem for p in (PACK / "assets/vampyuyu/items/icon").glob("*.json")}
+        source = menus + (java / "CompassGUI.java").read_text()
+        for icon in set(re.findall(r'"((?:potion-|mark-|card-)[a-z-]*|target|heart|shield|moon|lock|timer|skip)"', source)):
+            if icon.endswith("-"):
+                continue  # a prefix completed at run time (card- + role)
+            self.assertIn(icon, icons)
 
     def test_invisible_item_model_chain(self):
         item = json.loads((PACK / "assets/vampyuyu/items/blank.json").read_text())

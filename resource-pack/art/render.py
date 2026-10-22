@@ -16,10 +16,11 @@ HERE = pathlib.Path(__file__).resolve().parent
 PACK = HERE.parent / "pack" / "assets" / "vampyuyu"
 SCALE = layout.PX_PER_GUI / layout.CSS_PER_GUI  # css px -> texture px (4 texture px per GUI px)
 
-CHROME = next((c for c in ("google-chrome", "chromium", "chromium-browser") if shutil.which(c)), None)
+CHROME = os.environ.get("CHROME") or next(
+    (c for c in ("google-chrome", "chromium", "chromium-browser") if shutil.which(c)), None)
 
 FONTS = ('<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&'
-         'family=Pixelify+Sans:wght@400;600&display=swap" rel="stylesheet">')
+         'family=Pixelify+Sans:wght@400;600;700&display=swap" rel="stylesheet">')
 
 def stars(h, n, seed):
     import random
@@ -326,7 +327,141 @@ def profile():
             + text(318, 70, 190, "Global balance", 12, "#fff6d8", True, "left", 2))
     return W, H, frame(W, H, svg, body)
 
-ART = {"menu_lobby": lobby, "menu_setup": setup, "menu_list": listing, "menu_detail": detail, "menu_confirm": confirm, "menu_compass": compass, "menu_profile": profile, "menu_alembic": alembic}
+WEREWOLF = HERE / "werewolf"   # illustrations of the werewolf design guide (decors, icons, cards)
+
+# Design guide colours (tokens.json of the "Loup-Garou Vampyuyu" design system)
+GUI = {"face": "#c9cad6", "tab": "#b9bbca", "title": "#22223a", "outline": "#14121f", "light": "#ffffff",
+       "shadow": "#7d7f95", "panel": "#2b3150", "panel-light": "#48507a", "panel-dark": "#1a1e33",
+       "box": "#232842", "night-800": "#120b2a", "ink-muted": "#cdbfe3", "ink-dim": "#8f84b3"}
+
+# name -> (decor, painted title, role colour, bottom boxes as (first column, width, label, tone))
+ROLE_MENUS = {
+    "menu_vote":    ("vote", "VILLAGE VOTE", "#ffd36e", [(0, 3, "YOUR VOTE", None), (3, 3, "LEADING", None), (6, 3, "SKIP", GUI["ink-dim"])]),
+    "menu_hunt":    ("werewolf", "THE HUNT", "#ff5a5a", [(0, 4, "YOUR PREY", None), (5, 4, "THE PACK", None)]),
+    "menu_vision":  ("seer", "THE VISION", "#b892ff", [(0, 9, "YOUR VISIONS", None)]),
+    "menu_potions": ("witch", "THE POTIONS", "#6fdc8c", [(0, 3, "LIFE", "#ffd36e"), (3, 3, "DEATH", "#6fdc8c"), (6, 3, "SLEEP", GUI["ink-dim"])]),
+    "menu_guard":   ("guard", "THE GUARD", "#6cc6ff", [(0, 4, "LAST NIGHT", None), (5, 4, "PROTECT ME", "#6cc6ff")]),
+    "menu_lovers":  ("cupid", "THE LOVERS", "#ff8fc0", [(0, 5, "THE LOVERS", None), (6, 3, "BIND", "#ff8fc0")]),
+    "menu_shot":    ("hunter", "LAST SHOT", "#f0a050", [(0, 5, "YOUR TARGET", None), (6, 3, "SHOOT", "#f0a050")]),
+}
+RING = [2, 3, 4, 5, 6, 16, 25, 34, 43, 51, 50, 49, 48, 47, 37, 28, 19, 10]  # plugin: WerewolfMenus.RING
+
+def role_menu(name):
+    """A werewolf role menu, drawn on the real 54-slot grid: the role's decor behind the chest, the
+    18 ring slots for the heads, the labelled boxes of the bottom panel and the hotbar's card, timer
+    and lock slots. Only the static frame is painted; heads, icons and counts are real items."""
+    decor, label, color, boxes = ROLE_MENUS[name]
+    W, H = 528, 666
+    g = GUI
+    bevel = "box-shadow:inset 3px 3px 0 rgba(255,255,255,.18),inset -3px -3px 0 rgba(0,0,0,.35);"
+    def box(x, y, w, h, css):
+        return f'<div style="position:absolute;box-sizing:border-box;left:{x}px;top:{y}px;width:{w}px;height:{h}px;{css}"></div>'
+    def label_at(x, y, w, t, tone):
+        return (f'<div style="position:absolute;left:{x}px;top:{y}px;width:{w}px;text-align:center;font-size:18px;'
+                f'font-weight:700;letter-spacing:1px;color:{tone};text-shadow:2px 2px 0 rgba(0,0,0,.45)">{t}</div>')
+    out = [box(0, 0, W, H, f"background:{g['face']};border:3px solid {g['outline']};"
+                           f"box-shadow:inset 3px 3px 0 {g['light']},inset -3px -3px 0 {g['shadow']};")]
+    out.append(f'<div style="position:absolute;box-sizing:border-box;left:114px;top:9px;width:300px;height:33px;'
+               f'background:{g["tab"]};border:3px solid {g["outline"]};display:flex;align-items:center;justify-content:center;'
+               f'font-size:18px;font-weight:600;letter-spacing:2px;color:{g["title"]}">{label}</div>')
+    picture = (WEREWOLF / "decors" / f"{decor}.png").as_uri()
+    out.append(f'<div style="position:absolute;box-sizing:border-box;left:15px;top:48px;width:498px;height:336px;'
+               f'border:3px solid {g["outline"]};background:{g["night-800"]};overflow:hidden">'
+               f'<img src="{picture}" style="position:absolute;left:0;top:0;width:492px;height:330px;object-fit:cover">'
+               f'<div style="position:absolute;inset:0;box-shadow:inset 0 0 0 3px {color}"></div></div>')
+    for slot in RING:
+        x, y = 21 + 54 * (slot % 9), 51 + 54 * (slot // 9)
+        out.append(box(x, y, 54, 54, f"border:3px solid {color};background:rgba(18,11,42,.72);{bevel}"))
+    out.append(box(15, 396, 498, 258, f"border:3px solid {g['outline']};background:{g['panel']};"
+                                      f"box-shadow:inset 3px 3px 0 {g['panel-light']},inset -3px -3px 0 {g['panel-dark']};"))
+    for col, width, text, tone in boxes:
+        x, y = 24 + 54 * col - 3, 420 - 3
+        fill = f"color-mix(in srgb,{tone} 30%,{g['box']})" if tone else g["box"]
+        out.append(box(x, y, width * 54, 108, f"border:3px solid {g['outline']};background:{fill};"
+                                              f"box-shadow:inset 3px 3px 0 {tone or '#3d4570'},inset -3px -3px 0 rgba(0,0,0,.35);"))
+        out.append(label_at(x, y + 11, width * 54, text, tone or g["ink-muted"]))
+        for c in range(col, col + width):  # faint wells where the box's items sit (inventory row 1)
+            out.append(box(24 + 54 * c, 474, 48, 48, "background:rgba(0,0,0,.22);"))
+    for col in (0, 4, 8):
+        out.append(box(24 + 54 * col - 3, 594 - 3, 54, 54, f"border:3px solid {g['outline']};background:{g['box']};{bevel}"))
+    html = f'''<!doctype html><html><head><meta charset="utf-8">{FONTS}
+<style>html,body{{margin:0;background:{g['night-800']}}}</style></head><body>
+<div style="position:relative;width:{W}px;height:{H}px;overflow:hidden;font-family:'Pixelify Sans',monospace">{"".join(out)}</div></body></html>'''
+    return W, H, html
+
+def render_werewolf():
+    """Werewolf items and HUD cards, from the guide's illustrations (needs Pillow, not Chrome):
+    icons and role cards as item models (vampyuyu:icon/<name>), and the card glyphs of the
+    vampyuyu:hud font. Icons are reduced with a quality filter, never upscaled."""
+    from PIL import Image, ImageEnhance
+    icon_dir = PACK / "textures" / "item" / "icon"
+    def save_icon(name, image):
+        image.save(icon_dir / f"{name}.png", optimize=True)
+        (PACK / "models/item/icon" / f"{name}.json").write_text(json.dumps(
+            {"parent": "minecraft:item/generated", "textures": {"layer0": f"vampyuyu:item/icon/{name}"}}, indent=2) + "\n")
+        (PACK / "items/icon" / f"{name}.json").write_text(json.dumps(
+            {"model": {"type": "minecraft:model", "model": f"vampyuyu:item/icon/{name}"}}, indent=2) + "\n")
+    def grey(image):
+        rgb = ImageEnhance.Brightness(image.convert("RGBA").convert("LA").convert("RGBA")).enhance(.6)
+        rgb.putalpha(image.convert("RGBA").getchannel("A"))
+        return rgb
+    for sub in ("textures/item/icon", "models/item/icon", "items/icon", "textures/font/card", "font"):
+        (PACK / sub).mkdir(parents=True, exist_ok=True)
+    icons = {p.stem: Image.open(p).convert("RGBA").resize((32, 32), Image.LANCZOS)
+             for p in sorted((WEREWOLF / "icons").glob("*.png"))}
+    icons["timer"] = icons.pop("clock")  # "clock" already names the admin menus' line icon
+    for name, image in icons.items():
+        save_icon(name, image)
+    save_icon("potion-life-off", grey(icons["potion-life"]))
+    save_icon("potion-death-off", grey(icons["potion-death"]))
+    save_icon("mark-last", grey(icons["shield"]))
+    save_icon("skip", skip_icon())
+    cards = {p.stem: Image.open(p).convert("RGBA") for p in sorted((WEREWOLF / "cards").glob("*.png"))}
+    for role in layout.CARDS:
+        save_icon(f"card-{role}", cards[role].resize((64, 64), Image.LANCZOS))
+    save_icon("mark-wolf", grey(cards["werewolf"].resize((64, 64), Image.LANCZOS)))
+    providers = []
+    for i, role in enumerate(layout.CARDS):
+        face = cards[role].resize((64, 64), Image.LANCZOS)
+        face.save(PACK / "textures/font/card" / f"{role}.png", optimize=True)
+        providers.append({"type": "bitmap", "file": f"vampyuyu:font/card/{role}.png", "ascent": layout.CARD_ASCENT,
+                          "height": layout.CARD_HEIGHT, "chars": [chr(layout.CARD_BASE + i)]})
+        if role != "back":
+            grey(face).save(PACK / "textures/font/card" / f"{role}-dead.png", optimize=True)
+            providers.append({"type": "bitmap", "file": f"vampyuyu:font/card/{role}-dead.png", "ascent": layout.CARD_ASCENT,
+                              "height": layout.CARD_HEIGHT, "chars": [chr(layout.CARD_BASE + layout.CARD_DEAD + i)]})
+    (PACK / "font" / "hud.json").write_text(json.dumps({"providers": providers}, indent=1) + "\n")
+    print("wrote", len(icons) + 4 + len(layout.CARDS) + 1, "werewolf icons and", len(providers), "card glyphs")
+
+def skip_icon():
+    """Hand-drawn 16x16 pixel ballot struck through, shown 2x: the SKIP button of the vote."""
+    from PIL import Image
+    rows = ["................",
+            "..oooooooooooo..",
+            "..oppppppppppo..",
+            "..oppppppppprro.",
+            "..opppppppprrro.",
+            "..oplllllprrrpo.",
+            "..oppppprrrpppo.",
+            "..opllrrrllllpo.",
+            "..oppprrrppppo..",
+            "..oprrrllllppo..",
+            "..orrrpppppppo..",
+            ".orrrlllllllpo..",
+            ".orrppppppppppo.",
+            "..oooooooooooo..",
+            "................",
+            "................"]
+    palette = {"o": (20, 18, 31, 255), "p": (246, 234, 208, 255), "l": (143, 132, 179, 255),
+               "r": (255, 90, 90, 255), ".": (0, 0, 0, 0)}
+    image = Image.new("RGBA", (16, 16))
+    for y, row in enumerate(rows):
+        for x, ch in enumerate(row[:16]):
+            image.putpixel((x, y), palette[ch])
+    return image.resize((32, 32), Image.NEAREST)
+
+ART = {"menu_lobby": lobby, "menu_setup": setup, "menu_list": listing, "menu_detail": detail, "menu_confirm": confirm, "menu_compass": compass, "menu_profile": profile, "menu_alembic": alembic,
+       **{name: (lambda n=name: role_menu(n)) for name in ROLE_MENUS}}
 
 def _shot(html, w, h, out):
     with tempfile.TemporaryDirectory() as tmp:
@@ -338,23 +473,27 @@ def _shot(html, w, h, out):
                        check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 def render(name):
-    """Cuts one background into the tiles listed in layout.BACKGROUNDS and rewrites the font."""
+    """Cuts one background into the tiles listed in layout.BACKGROUNDS and rewrites the font.
+    The page is shot once, with spare window height (headless Chrome may reserve some of it), then
+    cropped to the window and cut into tiles."""
+    from PIL import Image
     if not CHROME:
         sys.exit("Chrome/Chromium is required to render art")
     w, h, html = ART[name]()
     base, gui_h, rows = layout.BACKGROUNDS[name]
     assert (w, h) == (layout.GUI_W * layout.CSS_PER_GUI, gui_h * layout.CSS_PER_GUI), (name, w, h)
-    tile_w, tile_h = layout.TILE_W * layout.CSS_PER_GUI, layout.tile_height(gui_h, rows) * layout.CSS_PER_GUI
+    tile_w, tile_h = layout.TILE_W * layout.PX_PER_GUI, layout.tile_height(gui_h, rows) * layout.PX_PER_GUI
     outdir = PACK / "textures" / "font"
     outdir.mkdir(parents=True, exist_ok=True)
-    jobs = []
+    with tempfile.TemporaryDirectory() as tmp:
+        shot = pathlib.Path(tmp) / "full.png"
+        _shot(html, w, h + 300, shot)
+        full = Image.open(shot).convert("RGBA").crop((0, 0, layout.GUI_W * layout.PX_PER_GUI, gui_h * layout.PX_PER_GUI))
     for r in range(rows):
         for c in range(layout.COLS):
-            shift = f'<style>body{{margin:0;transform:translate({-c * tile_w}px,{-r * tile_h}px);transform-origin:0 0}}html{{overflow:hidden}}</style></head>'
-            jobs.append((html.replace("</head>", shift, 1), tile_w, tile_h, outdir / f"{layout.tile_file(name, r, c)}.png"))
-    with concurrent.futures.ThreadPoolExecutor(4) as pool:
-        list(pool.map(lambda j: _shot(*j), jobs))
-    print("wrote", len(jobs), "tiles for", name)
+            full.crop((c * tile_w, r * tile_h, (c + 1) * tile_w, (r + 1) * tile_h)).save(
+                outdir / f"{layout.tile_file(name, r, c)}.png", optimize=True)
+    print("wrote", rows * layout.COLS, "tiles for", name)
 
 def write_font():
     providers = [{"type": "space", "advances": {chr(k): v for k, v in layout.ADVANCES.items()}}]
@@ -369,7 +508,7 @@ def write_font():
     print("wrote font with", len(providers) - 1, "tiles")
 
 if __name__ == "__main__":
-    wanted = sys.argv[1:] or [*ART, "icons"]
+    wanted = sys.argv[1:] or [*ART, "icons", "werewolf"]
     for n in wanted:
-        render_icons() if n == "icons" else render(n)
+        render_icons() if n == "icons" else render_werewolf() if n == "werewolf" else render(n)
     write_font()

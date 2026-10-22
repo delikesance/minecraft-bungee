@@ -1,0 +1,139 @@
+{
+ "providers": [
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/card/back.png",
+   "ascent": 30,
+   "height": 32,
+   "chars": [
+    "\ue000"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/card/villager.png",
+   "ascent": 30,
+   "height": 32,
+   "chars": [
+    "\ue001"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/card/villager-dead.png",
+   "ascent": 30,
+   "height": 32,
+   "chars": [
+    "\ue011"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/card/werewolf.png",
+   "ascent": 30,
+   "height": 32,
+   "chars": [
+    "\ue002"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/card/werewolf-dead.png",
+   "ascent": 30,
+   "height": 32,
+   "chars": [
+    "\ue012"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/card/seer.png",
+   "ascent": 30,
+   "height": 32,
+   "chars": [
+    "\ue003"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/card/seer-dead.png",
+   "ascent": 30,
+   "height": 32,
+   "chars": [
+    "\ue013"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/card/cupid.png",
+   "ascent": 30,
+   "height": 32,
+   "chars": [
+    "\ue004"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/card/cupid-dead.png",
+   "ascent": 30,
+   "height": 32,
+   "chars": [
+    "\ue014"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/card/hunter.png",
+   "ascent": 30,
+   "height": 32,
+   "chars": [
+    "\ue005"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/card/hunter-dead.png",
+   "ascent": 30,
+   "height": 32,
+   "chars": [
+    "\ue015"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/card/witch.png",
+   "ascent": 30,
+   "height": 32,
+   "chars": [
+    "\ue006"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/card/witch-dead.png",
+   "ascent": 30,
+   "height": 32,
+   "chars": [
+    "\ue016"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/card/guard.png",
+   "ascent": 30,
+   "height": 32,
+   "chars": [
+    "\ue007"
+   ]
+  },
+  {
+   "type": "bitmap",
+   "file": "vampyuyu:font/card/guard-dead.png",
+   "ascent": 30,
+   "height": 32,
+   "chars": [
+    "\ue017"
+   ]
+  }
+ ]
+}

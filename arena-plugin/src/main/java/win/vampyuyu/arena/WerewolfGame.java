@@ -46,9 +46,20 @@ public final class WerewolfGame implements GamePreset {
       lovers = new HashMap<>(),
       guards = new HashMap<>(),
       lastGuard = new HashMap<>(),
-      poisons = new HashMap<>(),
-      poisonAims = new HashMap<>();
-  private final Set<UUID> heals = new HashSet<>();
+      poisons = new HashMap<>();
+  private final Set<UUID> heals = new HashSet<>(), abstained = new HashSet<>();
+
+  /** Every vision a seer had, oldest first: the menu keeps showing them on later nights. */
+  private final Map<UUID, Map<UUID, Role>> seen = new HashMap<>();
+
+  /**
+   * Heads picked in a menu before a confirming button (Cupid's two lovers, the hunter's target, the
+   * witch's poison target). They belong to the phase they were picked in.
+   */
+  private final Map<UUID, List<UUID>> aims = new HashMap<>();
+
+  private Phase aimPhase;
+  private int dawns;
   private final Deque<UUID> hunters = new ArrayDeque<>();
   private final int discussion, vote, night;
   private final GameRules.Werewolf settings;
@@ -163,37 +174,154 @@ public final class WerewolfGame implements GamePreset {
           case CUPID -> "Opening night: select two living players to bind as lovers.";
           case HUNTER -> "If eliminated, choose one living player for your final shot.";
           case WITCH ->
-              "Potion phase: while you hold the healing potion, you see the wolves' victim and can"
-                  + " save them; click a head twice to poison. Each potion works once per game.";
+              "Potion phase: while you hold the life potion, you see the wolves' victim and can"
+                  + " save them with LIFE. Pick a head, then DEATH to poison it. Each potion works"
+                  + " once per game; SLEEP ends your turn.";
           case GUARD ->
-              "At night, protect one player, including yourself. Never the same target twice in a"
-                  + " row. Your choice is final.";
+              "At night, protect one player, or yourself with PROTECT ME. Never the same player two"
+                  + " nights in a row. Your choice is final.";
           case SEER -> "At night, inspect one other living player.";
           case WEREWOLF ->
               "At night, vote with the pack for a non-wolf. The hunt ends as soon as every wolf"
                   + " picks the same victim. There is no night chat.";
-          default -> "Discuss by day, then vote to identify the wolves.";
+          default -> "Discuss by day, then vote to identify the wolves, or skip the vote.";
         })
         + bond;
   }
 
+  /**
+   * Buttons the player can press right now, in menu order: skip (day vote), heal / poison / sleep
+   * (witch), bind (Cupid, once two lovers are picked), shoot (hunter, once a target is picked) and
+   * protect-self (guard).
+   */
   public synchronized Map<String, String> abilities(UUID p) {
-    if (phase == Phase.WITCH
-        && alive.contains(p)
-        && roles.get(p) == Role.WITCH
-        && !healUsed.contains(p)
-        && nightVictim != null
-        && alive.contains(nightVictim)
-        && !heals.contains(p)) return Map.of("heal", "Use healing potion · save " + nightVictim);
-    return Map.of();
+    Map<String, String> out = new LinkedHashMap<>();
+    Role role = roles.get(p);
+    boolean living = alive.contains(p);
+    switch (phase) {
+      case DAY_VOTE -> {
+        if (living) out.put("skip", abstained.contains(p) ? "Vote after all" : "Skip the vote");
+      }
+      case WITCH -> {
+        if (!living || role != Role.WITCH) break;
+        if (!healUsed.contains(p)
+            && nightVictim != null
+            && alive.contains(nightVictim)
+            && !heals.contains(p)) out.put("heal", "Use the life potion · save " + nightVictim);
+        if (!poisonUsed.contains(p) && !aims(p).isEmpty())
+          out.put("poison", "Use the death potion on " + aims(p).getFirst());
+        out.put("sleep", "Go back to sleep");
+      }
+      case CUPID -> {
+        if (living && role == Role.CUPID && lovers.isEmpty() && aims(p).size() == 2)
+          out.put("bind", "Bind " + aims(p).get(0) + " and " + aims(p).get(1));
+      }
+      case HUNTER_SHOT -> {
+        if (Objects.equals(hunters.peekFirst(), p) && !aims(p).isEmpty())
+          out.put("shoot", "Shoot " + aims(p).getFirst());
+      }
+      case GUARD -> {
+        if (living && role == Role.GUARD && !Objects.equals(lastGuard.get(p), p))
+          out.put("protect-self", "Protect yourself tonight");
+      }
+      default -> {}
+    }
+    return out;
   }
 
   public synchronized String use(UUID p, String ability) {
-    if (!ability.equals("heal") || !abilities(p).containsKey("heal"))
-      throw new IllegalArgumentException("Healing potion unavailable");
-    heals.add(p);
-    healUsed.add(p);
-    return "Healing potion used. The wolf victim will survive this night.";
+    if (!abilities(p).containsKey(ability))
+      throw new IllegalArgumentException(
+          switch (ability) {
+            case "heal" -> "Life potion unavailable";
+            case "poison" -> "Pick a head to poison first";
+            case "bind" -> "Pick two lovers first";
+            case "shoot" -> "Pick your target first";
+            default -> "This action is unavailable now";
+          });
+    switch (ability) {
+      case "heal" -> {
+        heals.add(p);
+        healUsed.add(p);
+        return "Life potion used. The wolves' victim will survive this night.";
+      }
+      case "poison" -> {
+        UUID target = aims.remove(p).getFirst();
+        return poison(p, target);
+      }
+      case "sleep" -> {
+        aims.remove(p);
+        advance();
+        return "You go back to sleep.";
+      }
+      case "bind" -> {
+        List<UUID> pair = aims.remove(p);
+        firstLover = null;
+        select(p, pair.get(0));
+        return select(p, pair.get(1));
+      }
+      case "shoot" -> {
+        return select(p, aims.remove(p).getFirst());
+      }
+      case "protect-self" -> {
+        return select(p, p);
+      }
+      default -> { // skip
+        ballots.remove(p);
+        if (abstained.remove(p)) return "You may vote again: click a head.";
+        abstained.add(p);
+        return "You skip this vote. Click a head if you change your mind.";
+      }
+    }
+  }
+
+  /**
+   * Picks or unpicks a head before a confirming button: Cupid's lovers (two), the hunter's target
+   * and the witch's poison target (one each; a new pick replaces the old one).
+   */
+  public synchronized String aim(UUID p, UUID target) {
+    if (!alive.contains(target)) throw new IllegalArgumentException("Select a living player");
+    Role role = roles.get(p);
+    int max;
+    if (phase == Phase.CUPID && role == Role.CUPID && alive.contains(p) && lovers.isEmpty())
+      max = 2;
+    else if (phase == Phase.HUNTER_SHOT && Objects.equals(hunters.peekFirst(), p)) max = 1;
+    else if (phase == Phase.WITCH && role == Role.WITCH && alive.contains(p)) {
+      if (poisonUsed.contains(p))
+        throw new IllegalArgumentException("Your death potion has already been used");
+      max = 1;
+    } else throw new IllegalArgumentException("You cannot pick a player during this phase");
+    if (aimPhase != phase) {
+      aims.clear();
+      aimPhase = phase;
+    }
+    List<UUID> picks = aims.computeIfAbsent(p, k -> new ArrayList<>());
+    if (picks.remove(target)) return "Removed " + target + ".";
+    if (picks.size() >= max) {
+      if (max > 1)
+        throw new IllegalArgumentException("Two lovers are already picked: click one to remove it");
+      picks.clear();
+    }
+    picks.add(target);
+    return switch (phase) {
+      case CUPID ->
+          picks.size() == 2
+              ? "Both lovers picked: press BIND to unite them."
+              : "First lover picked: " + target + ". Pick a second one.";
+      case HUNTER_SHOT -> "Target: " + target + ". Press SHOOT to fire.";
+      default -> "Target: " + target + ". Press DEATH to poison them.";
+    };
+  }
+
+  /** Heads this player picked in the current phase, in pick order. */
+  public synchronized List<UUID> aims(UUID p) {
+    return aimPhase == phase ? List.copyOf(aims.getOrDefault(p, List.of())) : List.of();
+  }
+
+  private String poison(UUID witch, UUID target) {
+    poisonUsed.add(witch);
+    poisons.put(witch, target);
+    return "Death potion used. " + target + " will die at dawn.";
   }
 
   public synchronized String select(UUID voter, UUID target) {
@@ -233,18 +361,14 @@ public final class WerewolfGame implements GamePreset {
     }
     if (phase == Phase.WITCH && role == Role.WITCH) {
       if (poisonUsed.contains(voter))
-        throw new IllegalArgumentException("Your poison potion has already been used");
-      if (!target.equals(poisonAims.put(voter, target)))
-        return "Click " + target + " again to confirm the poison. It cannot be undone.";
-      poisonAims.remove(voter);
-      poisonUsed.add(voter);
-      poisons.put(voter, target);
-      return "Poison potion used. Your target will die at dawn.";
+        throw new IllegalArgumentException("Your death potion has already been used");
+      return poison(voter, target);
     }
     if (voter.equals(target)) throw new IllegalArgumentException("Select another living player");
     if (phase == Phase.SEER && role == Role.SEER) {
       if (!visions.add(voter))
         throw new IllegalArgumentException("You already used your vision tonight");
+      seen.computeIfAbsent(voter, k -> new LinkedHashMap<>()).put(target, roles.get(target));
       String vision = "Your vision: " + target + " is " + roles.get(target) + ".";
       advance();
       return vision;
@@ -253,6 +377,11 @@ public final class WerewolfGame implements GamePreset {
       throw new IllegalArgumentException("You cannot vote during this phase");
     if (phase == Phase.NIGHT && roles.get(target) == Role.WEREWOLF)
       throw new IllegalArgumentException("Wolves cannot target another wolf");
+    abstained.remove(voter);
+    if (target.equals(ballots.get(voter))) {
+      ballots.remove(voter); // A second click on the same head takes the vote back.
+      return "Vote withdrawn.";
+    }
     ballots.put(voter, target);
     if (phase == Phase.NIGHT && packAgrees()) {
       advance();
@@ -286,9 +415,7 @@ public final class WerewolfGame implements GamePreset {
         List<UUID> targets = new ArrayList<>(alive);
         targets.remove(bot);
         if (poisonUsed.contains(bot) || targets.isEmpty() || random.nextInt(4) != 0) continue;
-        UUID target = targets.get(random.nextInt(targets.size()));
-        select(bot, target);
-        select(bot, target); // The second click confirms the poison.
+        select(bot, targets.get(random.nextInt(targets.size())));
         continue;
       }
       int choices = phase == Phase.CUPID ? 2 : 1;
@@ -319,7 +446,8 @@ public final class WerewolfGame implements GamePreset {
     hunters.remove(p);
     guards.remove(p);
     poisons.remove(p);
-    poisonAims.remove(p);
+    aims.remove(p);
+    abstained.remove(p);
     if (p.equals(firstLover)) firstLover = null;
     if (phase == Phase.HUNTER_SHOT) resumeAfterHunters();
     // A departing lover can take a hunter down with them: let them shoot now, then carry on.
@@ -354,6 +482,7 @@ public final class WerewolfGame implements GamePreset {
     // Only the living vote, and only for the living.
     ballots.remove(p);
     ballots.values().removeIf(p::equals);
+    aims.values().forEach(picks -> picks.remove(p));
     if (shot && roles.get(p) == Role.HUNTER) hunters.addLast(p);
     UUID partner = lovers.get(p);
     if (partner != null) eliminate(partner, true);
@@ -366,8 +495,8 @@ public final class WerewolfGame implements GamePreset {
     lastGuard.putAll(guards);
     guards.clear();
     poisons.clear();
-    poisonAims.clear();
     heals.clear();
+    dawns++;
     nightVictim = null;
     victimGuarded = false;
     continueWith(Phase.DISCUSSION);
@@ -397,6 +526,12 @@ public final class WerewolfGame implements GamePreset {
         return;
       }
       case CUPID -> {
+        // Two picked lovers are bound when time runs out, as if Cupid had pressed BIND.
+        for (UUID cupid : alive)
+          if (roles.get(cupid) == Role.CUPID && abilities(cupid).containsKey("bind")) {
+            use(cupid, "bind");
+            return;
+          }
         if (lovers.isEmpty())
           for (UUID cupid : alive)
             if (roles.get(cupid) == Role.CUPID)
@@ -408,6 +543,7 @@ public final class WerewolfGame implements GamePreset {
       case DAY_VOTE -> {
         eliminate(majority(), true);
         ballots.clear();
+        abstained.clear();
         visions.clear();
         continueWith(firstNightPhase());
       }
@@ -423,6 +559,12 @@ public final class WerewolfGame implements GamePreset {
       }
       case WITCH -> nightDeaths();
       case HUNTER_SHOT -> {
+        // A picked target is shot when time runs out, as if the hunter had pressed SHOOT.
+        UUID hunter = hunters.peekFirst();
+        if (hunter != null && abilities(hunter).containsKey("shoot")) {
+          use(hunter, "shoot");
+          return;
+        }
         hunters.pollFirst();
         resumeAfterHunters();
       }
@@ -456,6 +598,72 @@ public final class WerewolfGame implements GamePreset {
     Set<UUID> result = new HashSet<>();
     for (UUID p : alive) if (roles.get(p) == active) result.add(p);
     return Set.copyOf(result);
+  }
+
+  /** Nights so far: night N is followed by day N. */
+  public synchronized int round() {
+    return night() ? dawns + 1 : Math.max(1, dawns);
+  }
+
+  /** The player's current ballot (day vote, or the wolves' hunt), or null. */
+  public synchronized UUID ballot(UUID voter) {
+    return ballots.get(voter);
+  }
+
+  public synchronized boolean abstained(UUID voter) {
+    return abstained.contains(voter);
+  }
+
+  /** The other living wolves, known only to a wolf. */
+  public synchronized List<UUID> pack(UUID wolf) {
+    if (roles.get(wolf) != Role.WEREWOLF) return List.of();
+    return alive.stream().filter(p -> !p.equals(wolf) && roles.get(p) == Role.WEREWOLF).toList();
+  }
+
+  /** What this seer has seen so far, oldest first (player -> role). */
+  public synchronized Map<UUID, String> visions(UUID seer) {
+    Map<UUID, String> out = new LinkedHashMap<>();
+    seen.getOrDefault(seer, Map.of()).forEach((p, r) -> out.put(p, r.name()));
+    return out;
+  }
+
+  /** The wolves' victim, shown to the witch during her turn while she holds the life potion. */
+  public synchronized UUID victim(UUID witch) {
+    return phase == Phase.WITCH
+            && roles.get(witch) == Role.WITCH
+            && !healUsed.contains(witch)
+            && nightVictim != null
+            && alive.contains(nightVictim)
+        ? nightVictim
+        : null;
+  }
+
+  public synchronized boolean lifePotion(UUID witch) {
+    return roles.get(witch) == Role.WITCH && !healUsed.contains(witch);
+  }
+
+  public synchronized boolean deathPotion(UUID witch) {
+    return roles.get(witch) == Role.WITCH && !poisonUsed.contains(witch);
+  }
+
+  /** Whom this guard protected last night, who cannot be protected again tonight. */
+  public synchronized UUID lastProtected(UUID guard) {
+    return lastGuard.get(guard);
+  }
+
+  /** This player's lover, known only to the two of them. */
+  public synchronized UUID partner(UUID p) {
+    return lovers.get(p);
+  }
+
+  /** How many of each role were dealt, in enum order. */
+  public synchronized Map<String, Integer> composition() {
+    Map<String, Integer> out = new LinkedHashMap<>();
+    for (Role role : Role.values()) {
+      int n = (int) roles.values().stream().filter(role::equals).count();
+      if (n > 0) out.put(role.name(), n);
+    }
+    return out;
   }
 
   /**
