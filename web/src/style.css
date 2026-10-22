@@ -1414,65 +1414,197 @@ select:focus-visible {
   grid-template-columns: minmax(0, 1fr) 245px;
   gap: 24px;
 }
-.inventory-grid {
-  display: grid;
-  grid-template-columns: repeat(9, minmax(0, 1fr));
-  gap: 5px;
+/* Minecraft inventory screen at GUI scale 2 (3 when there is room): one texture pixel is --px. */
+.mc-stage {
+  container-type: inline-size;
 }
-.equipment-grid {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 6px;
-  margin-bottom: 22px;
+.mc-window {
+  --px: 2px;
+  display: inline-block;
+  max-width: 100%;
+  padding: calc(var(--px) * 7);
+  background: #c6c6c6;
+  border: var(--px) solid #000;
+  border-radius: calc(var(--px) * 3);
+  box-shadow:
+    inset calc(var(--px) * 2) calc(var(--px) * 2) #fff,
+    inset calc(var(--px) * -2) calc(var(--px) * -2) #555;
+  user-select: none;
 }
-.inventory-slot {
-  position: relative;
-  min-width: 0;
-  min-height: 72px;
-  padding: 7px 5px 17px;
-  background: #f4ebdf;
-  border: 1px solid var(--border);
-  border-radius: 5px;
-  text-align: center;
+@container (min-width: 560px) {
+  .mc-window {
+    --px: 3px;
+  }
+}
+.mc-window img,
+.mc-tooltip img,
+.mc-preview img {
+  image-rendering: pixelated;
+}
+.mc-top {
+  display: flex;
+  gap: calc(var(--px) * 2);
+  margin-bottom: calc(var(--px) * 3);
+}
+.mc-column {
+  display: grid;
+}
+.mc-player {
+  width: calc(var(--px) * 76);
+  padding: calc(var(--px) * 4);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: calc(var(--px) * 3);
+  background: #000;
+  box-shadow:
+    inset var(--px) var(--px) #373737,
+    inset calc(var(--px) * -1) calc(var(--px) * -1) #fff;
   overflow: hidden;
 }
-.inventory-slot small {
+.mc-offhand {
+  align-self: flex-end;
+}
+.mc-title {
   display: block;
-  font-size: 8px;
-  color: var(--muted);
-  margin-bottom: 7px;
+  margin: 0 0 calc(var(--px) * 2) var(--px);
 }
-.inventory-slot > span {
+.mc-grid {
+  display: grid;
+  grid-template-columns: repeat(9, calc(var(--px) * 18));
+}
+.mc-hotbar {
+  margin-top: calc(var(--px) * 4);
+}
+.mc-slot {
+  --px: 2px;
+  position: relative;
+  width: calc(var(--px) * 18);
+  height: calc(var(--px) * 18);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: #8b8b8b;
+  box-shadow:
+    inset var(--px) var(--px) #373737,
+    inset calc(var(--px) * -1) calc(var(--px) * -1) #fff;
+}
+.mc-window .mc-slot {
+  --px: inherit;
+}
+.mc-slot:disabled {
+  opacity: 1;
+  cursor: progress;
+}
+.mc-slot::after {
+  content: "";
+  position: absolute;
+  inset: var(--px);
+  pointer-events: none;
+}
+.mc-slot:hover::after,
+.mc-slot:focus-visible::after {
+  background: rgb(255 255 255 / 0.5);
+}
+.mc-slot.selected {
+  z-index: 1;
+  outline: var(--px) solid #fff;
+  outline-offset: calc(var(--px) * -1);
+}
+.mc-slot.selected::after {
+  background: rgb(255 255 255 / 0.3);
+}
+.mc-icon,
+.mc-sprite,
+.mc-icon-fallback {
+  position: absolute;
+  inset: var(--px);
+  width: calc(var(--px) * 16);
+  height: calc(var(--px) * 16);
+}
+.mc-icon img {
   display: block;
-  font-size: 10px;
-  line-height: 1.3;
-  text-transform: capitalize;
-  overflow-wrap: anywhere;
+  width: 100%;
+  height: 100%;
 }
-.inventory-slot b {
+.mc-glint {
   position: absolute;
-  right: 5px;
-  bottom: 4px;
-  font-size: 11px;
-  color: var(--accent);
+  inset: 0;
+  mask-size: 100% 100%;
+  -webkit-mask-size: 100% 100%;
+  background: linear-gradient(
+    120deg,
+    transparent 35%,
+    rgb(178 110 255 / 0.65) 50%,
+    transparent 65%
+  );
+  background-size: 300% 100%;
+  mix-blend-mode: screen;
+  animation: mc-glint 3s linear infinite;
 }
-.inventory-slot i {
+@keyframes mc-glint {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mc-glint {
+    animation: none;
+    background-position: 50% 0;
+  }
+}
+.mc-icon-fallback {
+  display: grid;
+  place-items: center;
+  font: 700 calc(var(--px) * 5) / 1 monospace;
+  color: #fff;
+  text-transform: uppercase;
+  text-shadow: calc(var(--px) * 0.5) calc(var(--px) * 0.5) #3f3f3f;
+}
+.mc-count {
   position: absolute;
-  bottom: 3px;
-  left: 5px;
-  font-size: 10px;
-  color: #9e7638;
+  z-index: 1;
+  right: calc(var(--px) * -2);
+  bottom: calc(var(--px) * -1);
 }
-.inventory-slot.slot-selected {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 1px var(--accent);
-  background: var(--accent-soft);
+.mc-text {
+  display: block;
+  flex: none;
 }
-.inventory-slot.has-item {
-  background: #fff9ee;
+.mc-text-fallback {
+  font: 700 calc(var(--px) * 8) / 1.1 monospace;
+  white-space: nowrap;
 }
-.inventory-slot.has-item.slot-selected {
-  background: #f7e5dd;
+.mc-tooltip {
+  --px: 2px;
+  position: fixed;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--px) * 1);
+  max-width: min(420px, calc(100vw - 24px));
+  padding: calc(var(--px) * 3) calc(var(--px) * 4);
+  background: rgb(16 0 16 / 0.94);
+  border: var(--px) solid #3a0a90;
+  border-top-color: #5000ff;
+  border-bottom-color: #28007f;
+  outline: var(--px) solid rgb(16 0 16 / 0.94);
+  pointer-events: none;
+}
+.mc-tooltip .mc-text:first-child {
+  margin-bottom: calc(var(--px) * 2);
+}
+.slot-editor-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.mc-preview {
+  flex: none;
 }
 .slot-editor {
   padding: 18px;
@@ -1628,18 +1760,8 @@ select:focus-visible {
   .player-dialog {
     padding: 16px;
   }
-  .inventory-slot {
-    min-height: 65px;
-    padding: 4px 2px 17px;
-  }
-  .inventory-slot > span {
-    font-size: 8px;
-  }
-  .inventory-slot small {
-    font-size: 7px;
-  }
-  .inventory-grid {
-    gap: 3px;
+  .mc-window {
+    --px: 1.5px;
   }
   .settings-grid,
   .moderation-panel {

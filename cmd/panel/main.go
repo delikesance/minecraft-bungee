@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"github.com/garder500/minecraft-bungee/internal/control"
 	"github.com/garder500/minecraft-bungee/internal/panel"
@@ -9,6 +10,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -57,6 +59,8 @@ func main() {
 	}
 	app := panel.New(db, origin, controller, token)
 	app.PackFile = os.Getenv("MENU_PACK_FILE")
+	app.Textures = &panel.TextureStore{Version: os.Getenv("MC_VERSION"), EULA: strings.EqualFold(os.Getenv("EULA"), "true"), CacheDir: filepath.Join(filepath.Dir(panel.DBPath()), "textures")}
+	go app.Textures.Ready(context.Background())
 	log.Print("panel listening on :8080")
 	bridgeToken, err := control.Secret("/run/secrets/role_bridge_token")
 	if err != nil {

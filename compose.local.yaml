@@ -71,6 +71,10 @@ services:
       NETWORK_CURRENCY_NAME: ${NETWORK_CURRENCY_NAME:-Shards}
       CONTROLLER_URL: http://controller:8081
       DB_PATH: /state/panel.db
+      # With the EULA accepted, the panel downloads this version's official client jar from Mojang once
+      # and keeps only item textures under /state/textures for the inventory view.
+      MC_VERSION: ${MC_VERSION:?Set MC_VERSION explicitly}
+      EULA: ${EULA:-FALSE}
       # Run `make pack` once; the plugins read the same reproducible SHA-1 from their image.
       MENU_PACK_FILE: /src/resource-pack/dist/vampyuyu-menus.zip
       GOCACHE: /tmp/go-build

@@ -42,6 +42,8 @@ type Server struct {
 	// PackFile is the menu resource pack served publicly at /pack/<sha1>.zip.
 	PackFile string
 	pack     packCache
+	// Textures serves item icons from the official client jar; nil leaves the inventory view text-only.
+	Textures *TextureStore
 	mu       sync.Mutex
 	attempts map[string]attempt
 	streams  chan struct{}
@@ -243,6 +245,7 @@ func (s *Server) Handler() http.Handler {
 	}
 	s.managementRoutes(mux, protected)
 	s.gameRoutes(mux, protected)
+	s.textureRoutes(mux, protected)
 	directory := &players.Service{DB: s.DB}
 	mux.HandleFunc("GET /api/v1/roles", protected(func(w http.ResponseWriter, r *http.Request, v session) { control.JSON(w, 200, players.Catalog) }))
 	mux.HandleFunc("GET /api/v1/players", protected(func(w http.ResponseWriter, r *http.Request, v session) {
