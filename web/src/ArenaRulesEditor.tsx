@@ -213,9 +213,9 @@ export function ArenaRulesEditor({
           <div className="arena-form-grid">
             {(
               [
-                ["cupidSeconds", "Cupid opening (seconds)"],
-                ["witchSeconds", "Potion phase (seconds)"],
-                ["hunterSeconds", "Hunter shot (seconds)"],
+                ["cupidSeconds", "Night 1 · Cupid picks the lovers (seconds)"],
+                ["witchSeconds", "Night · Witch potions time (seconds)"],
+                ["hunterSeconds", "Hunter's final shot time (seconds)"],
               ] as const
             ).map(([key, label]) => (
               <label key={key}>
