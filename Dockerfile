@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-ARG MINECRAFT_IMAGE=itzg/minecraft-server:java21@sha256:9f87a7fd070a117584f57cd134bfd9448d4070d9ec1bf45fd3b083737211ab2b
+ARG MINECRAFT_IMAGE=itzg/minecraft-server:java25@sha256:3168dfa30c35fa1f99b8edde120f934a03ee780fcf905f450a1dbd9551d719f5
 FROM node:24-alpine@sha256:44fce696f38ba8c987c4db89954051000bbd05ffd8d8659ba15ed4a8602e937f AS web
 WORKDIR /web
 COPY web/package*.json ./
@@ -42,22 +42,27 @@ FROM runtime AS tools
 COPY --from=build /out/network /app/network
 ENTRYPOINT ["/app/network"]
 
-FROM maven:3-eclipse-temurin-21@sha256:d23342b1a070a07555f4ef20c085a81aa40e5f5b3288ebf8ddae2f67e9d760c8 AS lobby-build
+FROM maven:3-eclipse-temurin-25@sha256:9b5f82b7166db6112eb123ba310a9e010ec3fe95022ac0728f491121563dfbab AS lobby-build
 WORKDIR /build
 COPY lobby/pom.xml ./
 COPY lobby/src ./src
 RUN --mount=type=cache,target=/root/.m2 mvn --batch-mode package
-FROM maven:3-eclipse-temurin-21@sha256:d23342b1a070a07555f4ef20c085a81aa40e5f5b3288ebf8ddae2f67e9d760c8 AS network-build
+FROM maven:3-eclipse-temurin-25@sha256:9b5f82b7166db6112eb123ba310a9e010ec3fe95022ac0728f491121563dfbab AS network-build
 WORKDIR /build
 COPY network-plugin/pom.xml ./
 COPY network-plugin/src ./src
 RUN --mount=type=cache,target=/root/.m2 mvn --batch-mode package
-FROM maven:3-eclipse-temurin-21@sha256:d23342b1a070a07555f4ef20c085a81aa40e5f5b3288ebf8ddae2f67e9d760c8 AS arena-build
+FROM maven:3-eclipse-temurin-25@sha256:9b5f82b7166db6112eb123ba310a9e010ec3fe95022ac0728f491121563dfbab AS arena-build
 WORKDIR /build
 COPY arena-plugin/pom.xml ./
 COPY arena-plugin/src ./src
 RUN --mount=type=cache,target=/root/.m2 mvn --batch-mode package
+FROM gradle:jdk25@sha256:ca424744a6a45a575f333edea680696d980999c461be38b1574a4c70d5455f24 AS claims-build
+WORKDIR /build
+COPY claims-plugin/ ./
+RUN --mount=type=cache,target=/home/gradle/.gradle gradle shadowJar --no-daemon --console=plain
 FROM ${MINECRAFT_IMAGE} AS server
+COPY --from=claims-build /build/build/libs/SimpleClaimSystem-1.13.1.jar /opt/claims/SimpleClaimSystem.jar
 COPY --from=pack /out/vampyuyu-menus.sha1 /opt/vampyuyu-menus.sha1
 COPY --from=network-build /build/target/network-display.jar /plugins/network-display.jar
 COPY --from=arena-build /build/target/nexus-arena-engine.jar /plugins/nexus-arena-engine.jar

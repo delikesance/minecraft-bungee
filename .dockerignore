@@ -11,3 +11,5 @@ lobby/target
 
 arena-plugin/target
 network-plugin/target
+claims-plugin/build
+claims-plugin/.gradle
