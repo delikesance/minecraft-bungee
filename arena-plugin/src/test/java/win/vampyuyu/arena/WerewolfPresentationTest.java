@@ -48,6 +48,40 @@ public class WerewolfPresentationTest {
   }
 
   @Test
+  public void centreLineSaysWhoseTurnItIsToEveryone() {
+    var g = game(Map.of("WEREWOLF", 2, "SEER", 1));
+    UUID seer = role(g, "SEER"), villager = role(g, "VILLAGER");
+    phase(g, "SEER");
+    var own = WerewolfPresentation.center(g, seer, 24);
+    assertEquals("☾ Your turn · 24 s", own.text());
+    assertEquals(WerewolfPresentation.SEER, own.color());
+    assertEquals("☾ The Seer's turn · 24 s", WerewolfPresentation.center(g, villager, 24).text());
+    phase(g, "NIGHT");
+    assertEquals("☾ The Werewolves' turn · 5 s", WerewolfPresentation.center(g, seer, 5).text());
+    phase(g, "DISCUSSION");
+    assertEquals("☀ Debate · 1 min 30", WerewolfPresentation.center(g, seer, 90).text());
+    phase(g, "DAY_VOTE");
+    var vote = WerewolfPresentation.center(g, villager, 30);
+    assertEquals("☀ Village vote · 30 s", vote.text());
+    assertEquals(WerewolfPresentation.VOTE, vote.color());
+  }
+
+  @Test
+  public void menuClicksPickTheRoleSound() {
+    String head = "select:" + new UUID(1, 1);
+    assertEquals("potion_life", WerewolfPresentation.actionSound("WITCH", "use:heal"));
+    assertEquals("potion_death", WerewolfPresentation.actionSound("WITCH", "use:poison"));
+    assertEquals("potion_death", WerewolfPresentation.actionSound("WITCH", head));
+    assertNull(WerewolfPresentation.actionSound("WITCH", "use:sleep"));
+    assertEquals("vision", WerewolfPresentation.actionSound("SEER", head));
+    assertEquals("bind", WerewolfPresentation.actionSound("CUPID", "use:bind"));
+    assertNull(WerewolfPresentation.actionSound("CUPID", head));
+    assertEquals("protect", WerewolfPresentation.actionSound("GUARD", head));
+    assertNull(WerewolfPresentation.actionSound("HUNTER", "use:shoot"));
+    assertNull(WerewolfPresentation.actionSound("WEREWOLF", head));
+  }
+
+  @Test
   public void deadHunterGetsPrivateInstructionsAndOthersSleep() {
     var g = game(Map.of("WEREWOLF", 1, "HUNTER", 1));
     UUID hunter = role(g, "HUNTER");

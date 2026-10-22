@@ -4,6 +4,8 @@ import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.function.Consumer;
+import net.kyori.adventure.key.Key;
+import net.kyori.adventure.sound.SoundStop;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.*;
 import net.kyori.adventure.title.Title;
@@ -15,6 +17,20 @@ final class WerewolfAmbience {
   private final NexusArenaEngine plugin;
   private final WerewolfHud screen = new WerewolfHud();
   private volatile long lastWarning;
+
+  /** Until when a story beat holds the centre of the screen, so the turn line waits for it. */
+  private final Map<UUID, Long> quietUntil = new ConcurrentHashMap<>();
+
+  /** Until when the current pass of the night music plays for each player. */
+  private final Map<UUID, Long> musicUntil = new ConcurrentHashMap<>();
+
+  /** Ticks between two story beats in the centre of the screen. */
+  static final long BEAT = 45;
+
+  /** Length of resource-pack/pack/assets/vampyuyu/sounds/werewolf/music.ogg, replayed in a loop. */
+  static final long MUSIC_MILLIS = 75_000;
+
+  static final Key MUSIC = Key.key("vampyuyu", "werewolf.music");
   private static final TextColor INK = TextColor.color(WerewolfPresentation.INK),
       INK_MUTED = TextColor.color(WerewolfPresentation.INK_MUTED),
       VOTE = TextColor.color(WerewolfPresentation.VOTE);
@@ -70,24 +86,47 @@ final class WerewolfAmbience {
     p.playSound(p.getLocation(), sound, SoundCategory.PLAYERS, volume, pitch);
   }
 
-  private void title(Player p, String heading, String subtitle, TextColor color) {
-    p.showTitle(
-        Title.title(
-            Component.text(heading, color),
-            Component.text(subtitle, INK),
-            Title.Times.times(
-                Duration.ofMillis(250), Duration.ofMillis(1250), Duration.ofMillis(500))));
+  /**
+   * One of the pack's werewolf sounds (resource-pack/pack/assets/vampyuyu/sounds.json), or the
+   * vanilla stand-in for players without the pack. The pack sets its own volumes.
+   */
+  static void cue(
+      NexusArenaEngine plugin, Player p, String name, Sound fallback, float volume, float pitch) {
+    if (plugin.skin != null && plugin.skin.active(p))
+      p.playSound(
+          net.kyori.adventure.sound.Sound.sound(
+              Key.key("vampyuyu", "werewolf." + name),
+              net.kyori.adventure.sound.Sound.Source.PLAYER,
+              1f,
+              1f),
+          net.kyori.adventure.sound.Sound.Emitter.self());
+    else p.playSound(p.getLocation(), fallback, SoundCategory.PLAYERS, volume, pitch);
   }
 
-  /** The turn's instruction stays on screen for the whole turn. */
-  private void instruct(
-      Player p, String heading, String subtitle, TextColor color, long stayMillis) {
+  private void cue(Player p, String name, Sound fallback, float volume, float pitch) {
+    cue(plugin, p, name, fallback, volume, pitch);
+  }
+
+  private void title(Player p, String heading, String subtitle, TextColor color) {
+    hush(p, 0);
     p.showTitle(
         Title.title(
             Component.text(heading, color),
             Component.text(subtitle, INK),
             Title.Times.times(
-                Duration.ofMillis(250), Duration.ofMillis(stayMillis), Duration.ofMillis(500))));
+                Duration.ofMillis(250), Duration.ofMillis(1500), Duration.ofMillis(500))));
+  }
+
+  /** Keeps the turn line off the centre until the beats scheduled up to this tick are over. */
+  private void hush(Player p, long ticks) {
+    long until = System.currentTimeMillis() + ticks * 50 + 2250;
+    quietUntil.merge(p.getUniqueId(), until, Math::max);
+  }
+
+  private void beat(
+      ArenaSession s, Player p, String event, long epoch, long ticks, Consumer<Player> action) {
+    if (ticks <= 0) action.accept(p);
+    else delayed(s, p, event, epoch, ticks, action);
   }
 
   private void heart(ArenaSession s, Player p, String event, long epoch) {
@@ -121,9 +160,10 @@ final class WerewolfAmbience {
     boolean dusk = WerewolfPresentation.dusk(s.ambienceNight, night);
     boolean dawn = WerewolfPresentation.dawn(s.ambienceNight, night, phase);
     s.ambienceNight = night;
-    Set<UUID> fallen = new HashSet<>();
+    Set<UUID> fallen = new LinkedHashSet<>();
     for (UUID id : s.players.keySet())
       if (current && !game.alive().contains(id) && !s.revealed.contains(id)) fallen.add(id);
+    boolean shot = current && !fallen.isEmpty() && s.ambiencePhase.equals("HUNTER_SHOT");
     List<Component> news = current ? news(s, game, phase) : List.of();
     s.nextHeartbeatAt = System.currentTimeMillis() + 4000;
     boolean enabled = s.config.werewolf().ambienceEnabled();
@@ -146,10 +186,8 @@ final class WerewolfAmbience {
                   player.clearTitle();
                   plugin.gui.disarm(player);
                   player.sendMessage(Component.text("Your story begins", INK));
-                  if (enabled) {
-                    sound(player, Sound.BLOCK_NOTE_BLOCK_HARP, .35f, 1.1f);
-                    title(player, "Your story begins", "Your card is being dealt…", INK);
-                  }
+                  if (enabled) sound(player, Sound.BLOCK_NOTE_BLOCK_HARP, .35f, 1.1f);
+                  title(player, "Your story begins", "Your card is being dealt…", INK);
                   // The card shows its back for two seconds, then turns over.
                   delayed(
                       s,
@@ -181,92 +219,131 @@ final class WerewolfAmbience {
                 if (!opening) player.clearTitle(); // Keep the opening title just shown.
                 news.forEach(player::sendMessage);
                 var view = WerewolfPresentation.view(game, id);
+                // The centre of the screen tells the story one beat at a time: the phase, each
+                // death, then whose turn it is. The turn line takes over once they are done.
+                long at = opening ? 40 : 0;
+                Consumer<Player> header = null;
                 if (dusk) {
                   player.sendMessage(
                       separator("☾ Night " + game.round(), WerewolfPresentation.SEER));
                   player.sendMessage(
                       Component.text("Night falls. The village falls asleep.", INK_MUTED));
-                  if (enabled) {
-                    sound(player, Sound.BLOCK_BELL_USE, .35f, .7f);
-                    Consumer<Player> cue =
-                        target -> {
-                          title(
-                              target,
-                              "Night falls",
-                              "The village falls asleep",
-                              TextColor.color(WerewolfPresentation.SEER));
-                        };
-                    if (opening) delayed(s, player, event, epoch, 40, cue);
-                    else cue.accept(player);
-                  }
+                  header =
+                      target -> {
+                        title(
+                            target,
+                            "☾ Night " + game.round(),
+                            "Night falls, the village falls asleep",
+                            TextColor.color(WerewolfPresentation.SEER));
+                        if (enabled) cue(target, "night", Sound.BLOCK_BELL_USE, .35f, .7f);
+                      };
                 } else if (dawn) {
                   player.sendMessage(
                       separator("☀ Day " + game.round(), WerewolfPresentation.VILLAGER));
                   player.sendMessage(
                       Component.text("Dawn breaks. The village wakes up.", INK_MUTED));
-                  if (enabled) {
-                    sound(player, Sound.BLOCK_NOTE_BLOCK_CHIME, .35f, 1.2f);
-                    title(
-                        player,
-                        "Dawn breaks",
-                        "The village awakens",
-                        TextColor.color(WerewolfPresentation.VILLAGER));
-                  }
+                  header =
+                      target -> {
+                        title(
+                            target,
+                            "☀ Day " + game.round(),
+                            "Dawn breaks, the village awakens",
+                            TextColor.color(WerewolfPresentation.VILLAGER));
+                        if (enabled) cue(target, "dawn", Sound.BLOCK_NOTE_BLOCK_CHIME, .35f, 1.2f);
+                      };
                 } else if (phase.equals("DAY_VOTE")) {
                   player.sendMessage(
                       Component.text(
                           "The village vote opens: vote in your menu, or skip.",
                           TextColor.color(WerewolfPresentation.VOTE)));
-                  if (enabled) {
-                    sound(player, Sound.BLOCK_NOTE_BLOCK_HAT, .2f, 1f);
-                    title(player, "Village vote", "Pick a head, or skip", VOTE);
-                  }
+                  header =
+                      target -> {
+                        title(target, "Village vote", "Pick a head, or skip", VOTE);
+                        if (enabled) cue(target, "vote", Sound.BLOCK_NOTE_BLOCK_HAT, .2f, 1f);
+                      };
                 }
-                if (fallen.contains(id) && enabled) {
-                  // Your own death is one of the big moments that earn a title.
-                  title(
+                if (header != null) {
+                  beat(s, player, event, epoch, at, header);
+                  at += BEAT;
+                }
+                boolean first = true;
+                for (UUID dead : fallen) {
+                  String deadRole = game.role(dead);
+                  boolean self = dead.equals(id), sting = first;
+                  first = false;
+                  beat(
+                      s,
                       player,
-                      "☠ You died",
-                      "You were "
-                          + WerewolfMenus.article(role)
-                          + WerewolfPresentation.roleName(role),
-                      TextColor.color(WerewolfPresentation.WEREWOLF));
-                  sound(player, Sound.ENTITY_WITHER_SPAWN, .15f, 1.4f);
+                      event,
+                      epoch,
+                      at,
+                      target -> {
+                        title(
+                            target,
+                            self ? "☠ You died" : "☠ " + s.players.getOrDefault(dead, "Someone"),
+                            (self ? "You were " : "They were ")
+                                + WerewolfMenus.article(deadRole)
+                                + WerewolfPresentation.roleName(deadRole),
+                            TextColor.color(WerewolfPresentation.WEREWOLF));
+                        if (!enabled || !sting) return;
+                        if (shot) cue(target, "shot", Sound.ENTITY_GENERIC_EXPLODE, .25f, 1.6f);
+                        cue(target, "death", Sound.ENTITY_WITHER_SPAWN, .15f, 1.4f);
+                      });
+                  at += BEAT;
                 }
+                String turn = WerewolfPresentation.turnRole(phase);
                 WerewolfPresentation.Cue awakening = WerewolfPresentation.awakening(phase);
+                long turnAt = at;
                 if (view.actor() && awakening != null) {
                   player.sendMessage(
                       CompassGUI.whisper(
                           awakening.title() + ". " + awakening.subtitle() + ".",
-                          WerewolfPresentation.color(WerewolfPresentation.turnRole(phase))));
-                  {
-                    // A dead hunter first reads their death, then the call to shoot.
-                    long delay =
-                        (opening ? dusk ? 80 : 40 : dusk ? 40 : 0) + (fallen.contains(id) ? 50 : 0);
-                    // A short cue only: the bossbar and the action bar carry the turn after it.
-                    long stay = 2500;
-                    Consumer<Player> cue =
-                        target -> {
-                          instruct(
-                              target, awakening.title(), awakening.subtitle(), roleColor, stay);
-                          if (enabled)
-                            switch (phase) {
-                              case "CUPID" -> sound(target, Sound.BLOCK_NOTE_BLOCK_HARP, .3f, 1.5f);
-                              case "GUARD" ->
-                                  sound(target, Sound.BLOCK_ENCHANTMENT_TABLE_USE, .25f, 1f);
-                              case "SEER" ->
-                                  sound(target, Sound.BLOCK_AMETHYST_BLOCK_CHIME, .3f, 1.2f);
-                              case "WITCH" -> sound(target, Sound.ITEM_BOTTLE_FILL, .25f, .8f);
-                              case "HUNTER_SHOT" ->
-                                  sound(target, Sound.ENTITY_ARROW_SHOOT, .2f, .8f);
-                              default -> {} // Wolves receive the heartbeat pair immediately after
-                                // gathering.
-                            }
-                        };
-                    if (delay > 0) delayed(s, player, event, epoch, delay, cue);
-                    else cue.accept(player);
-                  }
+                          WerewolfPresentation.color(turn)));
+                  beat(
+                      s,
+                      player,
+                      event,
+                      epoch,
+                      at,
+                      target -> {
+                        title(target, awakening.title(), awakening.subtitle(), roleColor);
+                        if (enabled)
+                          switch (phase) {
+                            case "CUPID" -> sound(target, Sound.BLOCK_NOTE_BLOCK_HARP, .3f, 1.5f);
+                            case "GUARD" ->
+                                sound(target, Sound.BLOCK_ENCHANTMENT_TABLE_USE, .25f, 1f);
+                            case "SEER" ->
+                                sound(target, Sound.BLOCK_AMETHYST_BLOCK_CHIME, .3f, 1.2f);
+                            case "WITCH" -> sound(target, Sound.ITEM_BOTTLE_FILL, .25f, .8f);
+                            case "HUNTER_SHOT" -> sound(target, Sound.ENTITY_ARROW_SHOOT, .2f, .8f);
+                            case "NIGHT" ->
+                                cue(target, "howl", Sound.ENTITY_WOLF_BIG_GROWL, .3f, .8f);
+                            default -> {}
+                          }
+                      });
+                  at += BEAT;
+                } else if (turn != null) {
+                  // Sleepers hear the narrator too: who wakes up, never who they are.
+                  beat(
+                      s,
+                      player,
+                      event,
+                      epoch,
+                      at,
+                      target -> {
+                        title(
+                            target,
+                            phase.equals("HUNTER_SHOT")
+                                ? "The Hunter takes aim"
+                                : WerewolfPresentation.wakeLine(phase),
+                            night ? "Keep your eyes shut…" : "Hold your breath…",
+                            TextColor.color(WerewolfPresentation.color(turn)));
+                        if (enabled && phase.equals("NIGHT"))
+                          cue(target, "howl", Sound.ENTITY_WOLF_BIG_GROWL, .3f, .8f);
+                      });
+                  at += BEAT;
                 }
+                hush(player, at);
                 if (enabled && phase.equals("NIGHT") && view.actor())
                   heart(s, player, event, epoch);
                 if (!phase.equals("DISCUSSION") && view.actor())
@@ -275,7 +352,7 @@ final class WerewolfAmbience {
                       player,
                       event,
                       epoch,
-                      dusk || opening ? opening ? 100 : 60 : 20,
+                      Math.max(dusk || opening ? opening ? 100 : 60 : 20, turnAt + 30),
                       plugin.gui::open);
                 else if (player.getOpenInventory().getTopInventory().getHolder()
                     instanceof CompassMenuHolder) player.closeInventory();
@@ -347,7 +424,31 @@ final class WerewolfAmbience {
             ? WerewolfPresentation.color(game.role(p.getUniqueId()))
             : WerewolfPresentation.INK_DIM;
     p.sendActionBar(Component.text(view.instruction(), TextColor.color(color)));
-    screen.show(s, p, game, System.currentTimeMillis() >= s.cardsTurnAt);
+    long now = System.currentTimeMillis();
+    long seconds = Math.max(0, (s.phaseEndsAt - now + 999) / 1000);
+    var line = WerewolfPresentation.center(game, p.getUniqueId(), seconds);
+    if (line != null && now >= quietUntil.getOrDefault(p.getUniqueId(), 0L))
+      // Resent every second with no fade, so it reads as one steady line under the crosshair.
+      p.showTitle(
+          Title.title(
+              Component.empty(),
+              Component.text(line.text(), TextColor.color(line.color())),
+              Title.Times.times(Duration.ZERO, Duration.ofMillis(1500), Duration.ofMillis(300))));
+    if (s.config.werewolf().ambienceEnabled()
+        && plugin.skin != null
+        && plugin.skin.active(p)
+        && now >= musicUntil.getOrDefault(p.getUniqueId(), 0L)) {
+      musicUntil.put(p.getUniqueId(), now + MUSIC_MILLIS);
+      p.playSound(
+          net.kyori.adventure.sound.Sound.sound(
+              MUSIC, net.kyori.adventure.sound.Sound.Source.AMBIENT, 1f, 1f),
+          net.kyori.adventure.sound.Sound.Emitter.self());
+    }
+    screen.show(s, p, game, now >= s.cardsTurnAt);
+  }
+
+  private void silence(Player p) {
+    if (musicUntil.remove(p.getUniqueId()) != null) p.stopSound(SoundStop.named(MUSIC));
   }
 
   /** Chat journal separator at the start of each night and day. */
@@ -377,10 +478,10 @@ final class WerewolfAmbience {
                 news.forEach(player::sendMessage);
                 player.sendMessage(separator("Game over", WerewolfPresentation.VOTE));
                 player.sendMessage(Component.text(result, VOTE));
-                if (s.config.werewolf().ambienceEnabled()) {
-                  sound(player, Sound.ENTITY_PLAYER_LEVELUP, .3f, .85f);
-                  title(player, "Game over", result, VOTE);
-                }
+                silence(player);
+                if (s.config.werewolf().ambienceEnabled())
+                  cue(player, "game_over", Sound.ENTITY_PLAYER_LEVELUP, .3f, .85f);
+                title(player, "Game over", result, VOTE);
               }));
     }
     return CompletableFuture.allOf(tasks.toArray(CompletableFuture[]::new));
@@ -390,6 +491,8 @@ final class WerewolfAmbience {
     if (s == null || !(s.game instanceof WerewolfGame)) return;
     p.sendActionBar(Component.empty());
     screen.clear(p);
+    silence(p);
+    quietUntil.remove(p.getUniqueId());
     plugin.village.unconceal(p, s);
     if (p.getOpenInventory().getTopInventory().getHolder() instanceof CompassMenuHolder)
       p.closeInventory();

@@ -109,6 +109,28 @@ class PackTest(unittest.TestCase):
         self.assertEqual(model["textures"]["layer0"], "vampyuyu:item/blank")
         self.assertTrue((PACK / "assets/vampyuyu/textures/item/blank.png").is_file())
 
+    def test_every_werewolf_sound_the_plugin_plays_is_in_the_pack(self):
+        sounds = json.loads((PACK / "assets/vampyuyu/sounds.json").read_text())
+        subtitles = json.loads((PACK / "assets/vampyuyu/lang/en_us.json").read_text())
+        java = ROOT / "arena-plugin/src/main/java/win/vampyuyu/arena"
+        ambience = (java / "WerewolfAmbience.java").read_text()
+        presentation = (java / "WerewolfPresentation.java").read_text()
+        clicks = presentation[presentation.index("static String actionSound"):]
+        clicks = clicks[: clicks.index("\n  }\n")]
+        played = set(re.findall(r'cue\(\s*\w+,\s*"(\w+)"', ambience)) | set(re.findall(r'"(\w+)"\s*[:;]', clicks))
+        played |= {"music"}
+        self.assertGreaterEqual(len(played), 13, played)
+        for name in played:
+            entry = sounds.get(f"werewolf.{name}")
+            self.assertIsNotNone(entry, name)
+            self.assertIn(entry["subtitle"], subtitles)
+            for sound in entry["sounds"]:
+                path = PACK / "assets/vampyuyu/sounds" / (sound["name"].split(":", 1)[1] + ".ogg")
+                self.assertTrue(path.is_file(), path)
+                self.assertEqual(path.read_bytes()[:4], b"OggS", path)
+        self.assertIn('Key.key("vampyuyu", "werewolf.music")', ambience)
+        self.assertTrue(sounds["werewolf.music"]["sounds"][0]["stream"])
+
     def test_build_is_reproducible_and_complete(self):
         with tempfile.TemporaryDirectory() as a, tempfile.TemporaryDirectory() as b:
             first, digest = build_pack.build(a)

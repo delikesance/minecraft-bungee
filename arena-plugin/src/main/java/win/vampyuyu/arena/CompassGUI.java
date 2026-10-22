@@ -586,7 +586,11 @@ public final class CompassGUI implements Listener {
                       ? wolf.aim(p.getUniqueId(), UUID.fromString(click.substring(4)))
                       : wolf.use(p.getUniqueId(), click.substring(4));
           p.sendMessage(whisper(friendly(response, s), color));
-          p.playSound(p.getLocation(), Sound.UI_BUTTON_CLICK, SoundCategory.MASTER, .35f, 1.3f);
+          String cue = WerewolfPresentation.actionSound(wolf.role(p.getUniqueId()), click);
+          if (cue != null && s.config.werewolf().ambienceEnabled())
+            WerewolfAmbience.cue(plugin, p, cue, Sound.UI_BUTTON_CLICK, .35f, 1.3f);
+          else
+            p.playSound(p.getLocation(), Sound.UI_BUTTON_CLICK, SoundCategory.MASTER, .35f, 1.3f);
           deliverNotices(s);
           plugin.arenas.phaseChanged(s);
           refresh(p);

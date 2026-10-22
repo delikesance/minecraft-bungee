@@ -1,0 +1,120 @@
+{
+  "werewolf.music": {
+    "sounds": [
+      {
+        "name": "vampyuyu:werewolf/music",
+        "volume": 0.35,
+        "stream": true
+      }
+    ],
+    "subtitle": "subtitles.vampyuyu.werewolf.music"
+  },
+  "werewolf.night": {
+    "sounds": [
+      {
+        "name": "vampyuyu:werewolf/night",
+        "volume": 0.8
+      }
+    ],
+    "subtitle": "subtitles.vampyuyu.werewolf.night"
+  },
+  "werewolf.dawn": {
+    "sounds": [
+      {
+        "name": "vampyuyu:werewolf/dawn",
+        "volume": 0.7
+      }
+    ],
+    "subtitle": "subtitles.vampyuyu.werewolf.dawn"
+  },
+  "werewolf.howl": {
+    "sounds": [
+      {
+        "name": "vampyuyu:werewolf/howl",
+        "volume": 0.7
+      }
+    ],
+    "subtitle": "subtitles.vampyuyu.werewolf.howl"
+  },
+  "werewolf.vote": {
+    "sounds": [
+      {
+        "name": "vampyuyu:werewolf/vote",
+        "volume": 0.8
+      }
+    ],
+    "subtitle": "subtitles.vampyuyu.werewolf.vote"
+  },
+  "werewolf.death": {
+    "sounds": [
+      {
+        "name": "vampyuyu:werewolf/death",
+        "volume": 0.9
+      }
+    ],
+    "subtitle": "subtitles.vampyuyu.werewolf.death"
+  },
+  "werewolf.shot": {
+    "sounds": [
+      {
+        "name": "vampyuyu:werewolf/shot",
+        "volume": 0.9
+      }
+    ],
+    "subtitle": "subtitles.vampyuyu.werewolf.shot"
+  },
+  "werewolf.potion_life": {
+    "sounds": [
+      {
+        "name": "vampyuyu:werewolf/potion_life",
+        "volume": 0.8
+      }
+    ],
+    "subtitle": "subtitles.vampyuyu.werewolf.potion_life"
+  },
+  "werewolf.potion_death": {
+    "sounds": [
+      {
+        "name": "vampyuyu:werewolf/potion_death",
+        "volume": 0.8
+      }
+    ],
+    "subtitle": "subtitles.vampyuyu.werewolf.potion_death"
+  },
+  "werewolf.vision": {
+    "sounds": [
+      {
+        "name": "vampyuyu:werewolf/vision",
+        "volume": 0.8
+      }
+    ],
+    "subtitle": "subtitles.vampyuyu.werewolf.vision"
+  },
+  "werewolf.bind": {
+    "sounds": [
+      {
+        "name": "vampyuyu:werewolf/bind",
+        "volume": 0.8
+      }
+    ],
+    "subtitle": "subtitles.vampyuyu.werewolf.bind"
+  },
+  "werewolf.protect": {
+    "sounds": [
+      {
+        "name": "vampyuyu:werewolf/protect",
+        "volume": 0.7
+      }
+    ],
+    "subtitle": "subtitles.vampyuyu.werewolf.protect"
+  },
+  "werewolf.game_over": {
+    "sounds": [
+      {
+        "name": "vampyuyu:werewolf/game_over",
+        "volume": 0.8
+      }
+    ],
+    "subtitle": "subtitles.vampyuyu.werewolf.game_over"
+  }
+}
