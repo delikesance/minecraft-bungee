@@ -49,11 +49,12 @@ final class ArenaAdmin implements Listener {
   }
 
   /** Painted menu when the viewer loaded the resource pack, glass-pane chest otherwise. */
-  private final class Menu implements InventoryHolder {
+  private final class Menu implements MenuVault.Menu {
     final UUID viewer;
     final Inventory inventory;
     final boolean skinned;
     final Map<Integer, Action> actions = new HashMap<>();
+    final Map<Integer, ItemStack> lower = new HashMap<>();
 
     Menu(Player p, Kind kind, String title) {
       viewer = p.getUniqueId();
@@ -70,6 +71,11 @@ final class ArenaAdmin implements Listener {
 
     public Inventory getInventory() {
       return inventory;
+    }
+
+    /** Navigation lives in the hotbar row (0-8), painted as part of the window. */
+    int hot(int i) {
+      return MenuVault.hotbar(inventory.getSize(), i);
     }
 
     void put(int slot, Material mat, String title, Action action, String... lore) {
@@ -93,13 +99,21 @@ final class ArenaAdmin implements Listener {
         int slot, Material mat, String icon, boolean glow, String title, Action action, String... lore) {
       ItemStack item = CompassGUI.item(mat, title, lore);
       if (skinned) MenuSkin.icon(item, icon != null ? icon : MenuSkin.iconFor(mat, title), glow);
-      inventory.setItem(slot, item);
+      if (slot >= inventory.getSize()) lower.put(slot, item);
+      else inventory.setItem(slot, item);
       if (action != null) actions.put(slot, action);
     }
   }
 
+  final MenuVault vault;
+
+  private void show(Player p, Menu m) {
+    vault.show(p, m.inventory, m.lower);
+  }
+
   ArenaAdmin(NexusArenaEngine plugin) {
     this.plugin = plugin;
+    vault = new MenuVault(plugin);
     Bukkit.getPluginManager().registerEvents(this, plugin);
   }
 
@@ -297,7 +311,7 @@ final class ArenaAdmin implements Listener {
     }
     paging(m, page, arenas.size(), n -> list(p, n));
     m.place(
-        46,
+        m.hot(1),
         Material.LIME_WOOL,
         "ruler",
         false,
@@ -307,7 +321,7 @@ final class ArenaAdmin implements Listener {
           list(p, page);
         });
     m.place(
-        47,
+        m.hot(2),
         Material.LIME_WOOL,
         "ruler",
         false,
@@ -330,10 +344,10 @@ final class ArenaAdmin implements Listener {
                   choice.put(11, Material.BONE, "Werewolf", () -> create(p, id, "werewolf"));
                   choice.put(
                       15, Material.GRASS_BLOCK, "Free play", () -> create(p, id, "freeplay"));
-                  p.openInventory(choice.inventory);
+                  show(p, choice);
                 }),
         "Select both corners, then stand at the spawn");
-    p.openInventory(m.inventory);
+    show(p, m);
   }
 
   void setup(Player p, String id) {
@@ -528,8 +542,8 @@ final class ArenaAdmin implements Listener {
                   list(p, 0);
                 },
                 () -> setup(p, id)));
-    m.put(45, Material.ARROW, "Back", () -> list(p, 0));
-    p.openInventory(m.inventory);
+    m.put(m.hot(0), Material.ARROW, "Back", () -> list(p, 0));
+    show(p, m);
   }
 
   void setPoint(Player p, String id, String field) throws Exception {
@@ -621,8 +635,8 @@ final class ArenaAdmin implements Listener {
                           houses(p, id, 0);
                         },
                         () -> houses(p, id, page)));
-            detail.put(18, Material.ARROW, "Back", () -> houses(p, id, page));
-            p.openInventory(detail.inventory);
+            detail.put(detail.hot(0), Material.ARROW, "Back", () -> houses(p, id, page));
+            show(p, detail);
           },
           coordinates(entry.getValue()));
     }
@@ -649,8 +663,8 @@ final class ArenaAdmin implements Listener {
                 houses(p, id, 0);
               });
         });
-    m.put(46, Material.ARROW, "Setup", () -> setup(p, id));
-    p.openInventory(m.inventory);
+    m.put(m.hot(0), Material.ARROW, "Setup", () -> setup(p, id));
+    show(p, m);
   }
 
   private void doors(Player p, String id, int page) {
@@ -713,20 +727,21 @@ final class ArenaAdmin implements Listener {
           doors(p, id, 0);
         },
         "Close the menu to aim at a door, then reopen");
-    m.put(46, Material.ARROW, "Setup", () -> setup(p, id));
-    p.openInventory(m.inventory);
+    m.put(m.hot(0), Material.ARROW, "Setup", () -> setup(p, id));
+    show(p, m);
   }
 
   private void paging(Menu m, int page, int size, java.util.function.IntConsumer render) {
-    if (page > 0) m.put(45, Material.ARROW, "Previous", () -> render.accept(page - 1));
-    if (size > (page + 1) * 36) m.put(53, Material.ARROW, "Next", () -> render.accept(page + 1));
+    if (page > 0) m.put(m.hot(6), Material.ARROW, "Previous", () -> render.accept(page - 1));
+    if (size > (page + 1) * 36)
+      m.put(m.hot(8), Material.ARROW, "Next", () -> render.accept(page + 1));
   }
 
   private void confirm(Player p, String title, Action yes, Action no) {
     Menu m = new Menu(p, Kind.CONFIRM, title);
     m.area(new int[] {23, 24, 25}, Material.RED_WOOL, "trash", "Confirm: " + title, yes);
     m.area(new int[] {19, 20, 21}, Material.ARROW, "back", "Cancel", no);
-    p.openInventory(m.inventory);
+    show(p, m);
   }
 
   private void prompt(Player p, String text, Input input) {

@@ -12,6 +12,50 @@ final class WerewolfPresentation {
     return Set.of("CUPID", "GUARD", "SEER", "NIGHT", "WITCH", "HUNTER_SHOT").contains(phase);
   }
 
+  /** True when this player must act now: their menu opens by itself and cannot be closed. */
+  static boolean menuRequired(WerewolfGame game, UUID id) {
+    synchronized (game) {
+      String phase = game.phase();
+      return !phase.equals("DISCUSSION") && !phase.equals("FINISHED") && game.actors().contains(id);
+    }
+  }
+
+  /** Role that acts during a night phase, or null outside the night. */
+  static String turnRole(String phase) {
+    return switch (phase) {
+      case "CUPID" -> "CUPID";
+      case "GUARD" -> "GUARD";
+      case "SEER" -> "SEER";
+      case "NIGHT" -> "WEREWOLF";
+      case "WITCH" -> "WITCH";
+      case "HUNTER_SHOT" -> "HUNTER";
+      default -> null;
+    };
+  }
+
+  static String roleLabel(String role) {
+    return role.equals("WEREWOLF")
+        ? "Werewolves"
+        : role.charAt(0) + role.substring(1).toLowerCase(Locale.ROOT);
+  }
+
+  static String deathLine(String name, String role) {
+    return name + " has died — they were "
+        + (role.equals("WEREWOLF") ? "a Werewolf" : "the " + roleLabel(role)).replace("the Villager", "a Villager");
+  }
+
+  static String wakeLine(String phase) {
+    String role = turnRole(phase);
+    return role == null ? null : "The " + roleLabel(role) + " wake" + (role.equals("WEREWOLF") ? "" : "s") + " up";
+  }
+
+  static String sleepLine(String phase) {
+    String role = turnRole(phase);
+    return role == null
+        ? null
+        : "The " + roleLabel(role) + " go" + (role.equals("WEREWOLF") ? "" : "es") + " back to sleep";
+  }
+
   static boolean dusk(boolean wasNight, String phase) {
     return !wasNight && secret(phase);
   }
@@ -61,7 +105,7 @@ final class WerewolfPresentation {
       case "CUPID" -> new Cue("Cupid, bind two hearts", "Choose two lovers with your compass");
       case "GUARD" -> new Cue("Guard, awaken", "Choose someone to protect");
       case "SEER" -> new Cue("Seer, awaken", "Discover one player's secret");
-      case "NIGHT" -> new Cue("Wolves, awaken", "Gather and choose your victim");
+      case "NIGHT" -> new Cue("Wolves, awaken", "Vote for your victim in the menu");
       case "WITCH" -> new Cue("Witch, awaken", "Your potions may change their fate");
       case "HUNTER_SHOT" -> new Cue("Hunter, take your final shot", "Choose your last target");
       default -> null;

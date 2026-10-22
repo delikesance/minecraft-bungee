@@ -1,7 +1,7 @@
 name: VampyuyuNetwork
 version: 0.5.0
 main: win.vampyuyu.network.NetworkDisplay
-api-version: '1.21'
+api-version: '26.3'
 description: Network roles, limited role commands, world selector and branded TAB list.
 softdepend: [NexusArenaEngine]
 commands:

@@ -957,20 +957,45 @@ export function Arenas({
                     45,
                   )}
                   {number("maxPlayers", "Maximum players", 1, 45)}
-                  {number("durationSeconds", "Time limit (seconds)", 60, 14400)}
-                  {draft.preset === "werewolf" && (
-                    <>
+                  {number(
+                    "durationSeconds",
+                    "Whole game time limit (seconds)",
+                    60,
+                    14400,
+                  )}
+                </div>
+                {draft.preset === "werewolf" && (
+                  <>
+                    <h3>Werewolf timers</h3>
+                    <p className="console-note">
+                      Each round is a day then a night. Day: players talk, then
+                      vote to eliminate someone. Night: roles wake one after
+                      another (Guard, Seer, Werewolves, Witch). The wolves'
+                      vote ends early once every wolf has voted. Eliminated
+                      players become spectators and their role is revealed.
+                    </p>
+                    <div className="arena-form-grid">
                       {number(
                         "discussionSeconds",
-                        "Discussion (seconds)",
+                        "Day · discussion time (seconds)",
                         5,
                         600,
                       )}
-                      {number("voteSeconds", "Day vote (seconds)", 5, 300)}
-                      {number("nightSeconds", "Night turn (seconds)", 5, 300)}
-                    </>
-                  )}
-                </div>
+                      {number(
+                        "voteSeconds",
+                        "Day · village vote time (seconds)",
+                        5,
+                        300,
+                      )}
+                      {number(
+                        "nightSeconds",
+                        "Night · time per role: Guard, Seer, Werewolf vote (seconds)",
+                        5,
+                        300,
+                      )}
+                    </div>
+                  </>
+                )}
                 <div className="arena-flags">
                   {(
                     [

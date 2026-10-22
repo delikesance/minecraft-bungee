@@ -13,4 +13,14 @@ public class RoleAccessTest {
         assertTrue(RoleAccess.permissionsFor(List.of("op", "deop", "gamemode", "execute", "*", "minecraft.command.op", "minecraft:op", "fly other")).isEmpty());
         assertTrue(RoleAccess.permissionsFor(null).isEmpty());
     }
+
+    @Test
+    public void creativeBuilderToolsAreExactNodesWithoutWildcardsOrOperatorCommands() {
+        assertTrue(RoleAccess.CREATIVE_BUILDER.contains("minecraft.command.give"));
+        assertTrue(RoleAccess.CREATIVE_BUILDER.contains("minecraft.debugstick"));
+        for (String node : RoleAccess.CREATIVE_BUILDER) {
+            assertFalse(node, node.contains("*"));
+            assertFalse(node, node.matches(".*\\.(op|deop|gamemode|execute|fill|clone|setblock)$"));
+        }
+    }
 }

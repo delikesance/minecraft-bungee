@@ -19,6 +19,8 @@ public final class ArenaSession {
   volatile String eventId;
   volatile long ambienceEpoch, nextHeartbeatAt;
   volatile boolean ambienceNight, ambienceFinale;
+  volatile String ambiencePhase = "";
+  final Set<UUID> revealed = ConcurrentHashMap.newKeySet();
   volatile CompletableFuture<Void> stopFuture = CompletableFuture.completedFuture(null);
 
   ArenaSession(ArenaConfig config) {

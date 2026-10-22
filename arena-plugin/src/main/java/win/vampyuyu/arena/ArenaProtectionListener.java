@@ -251,21 +251,21 @@ public final class ArenaProtectionListener implements Listener {
         game != null
             && java.util.Set.of("CUPID", "GUARD", "SEER", "NIGHT", "WITCH", "HUNTER_SHOT")
                 .contains(game.phase());
-    if (night && alive && (!game.phase().equals("NIGHT") || !game.role(from).equals("WEREWOLF"))) {
+    if (night && alive) {
       plugin.message(
-          e.getPlayer(), "The village is asleep. Use your compass for your night action.");
+          e.getPlayer(), "The village is asleep. Use your compass or claw for your night action.");
       return;
     }
     Component message =
         Component.text(
-                (!alive ? "[Observers] " : night ? "[Wolves] " : "[Arena] ")
+                (!alive ? "[Spectators] " : "[Arena] ")
                     + e.getPlayer().getName()
                     + " » ",
-                !alive ? NamedTextColor.GRAY : night ? NamedTextColor.RED : NamedTextColor.WHITE)
+                !alive ? NamedTextColor.GRAY : NamedTextColor.WHITE)
             .append(e.message());
     for (UUID target : s.players.keySet()) {
       boolean targetAlive = game == null || game.alive().contains(target);
-      if (targetAlive != alive || night && alive && !game.role(target).equals("WEREWOLF")) continue;
+      if (targetAlive != alive) continue;
       Player p = Bukkit.getPlayer(target);
       if (p != null)
         plugin.onPlayer(

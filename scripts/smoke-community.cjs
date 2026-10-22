@@ -94,7 +94,7 @@ async function connect(i) {
   const client = mc.createClient({
     host: "127.0.0.1",
     port: gamePort,
-    version: "1.21.9",
+    version: process.env.SMOKE_MC_VERSION || "1.21.9",
     username: "FeatureTest" + i,
     auth: "offline",
   });

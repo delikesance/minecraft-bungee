@@ -223,7 +223,11 @@ public final class NexusArenaEngine extends JavaPlugin {
           if (args.length != 2)
             throw new IllegalArgumentException("Usage: /arena join <id or server:id>");
           handle(p, bridge.join(p, args[1]));
-        } else if (sub.equals("leave")) handle(p, arenas.leaveArena(p));
+        } else if (sub.equals("leave")) {
+          if (arenas.leaveBlocked(p.getUniqueId()))
+            message(p, "You cannot leave while the game is running.");
+          else handle(p, arenas.leaveArena(p));
+        }
         else if (arenas.session(p.getUniqueId()) != null) gui.open(p);
         else message(p, "Use /arena list and /arena join <id>.");
         return true;
@@ -292,6 +296,8 @@ public final class NexusArenaEngine extends JavaPlugin {
       } catch (ClassNotFoundException e) {
         folia = false;
       }
+      // Vault files stay on disk on Folia and are restored when the player next joins.
+      if (!folia && admin != null) admin.vault.giveAll();
       if (!folia)
         for (Player p : Bukkit.getOnlinePlayers())
           if (arenas.snapshots.exists(p.getUniqueId()))

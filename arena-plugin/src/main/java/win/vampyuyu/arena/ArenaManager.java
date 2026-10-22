@@ -135,6 +135,17 @@ public final class ArenaManager {
     return members.get(id);
   }
 
+  /** Living players cannot walk out of a running werewolf game. */
+  public boolean leaveBlocked(UUID id) {
+    ArenaSession s = members.get(id);
+    return s != null
+        && s.game instanceof WerewolfGame game
+        && !s.stopping
+        && !s.finishing
+        && game.winner().isEmpty()
+        && game.alive().contains(id);
+  }
+
   public boolean locked(UUID id) {
     return members.containsKey(id) || busy.contains(id) || recovery.contains(id);
   }
@@ -174,7 +185,13 @@ public final class ArenaManager {
     }
     CompletableFuture<Void> future =
         plugin
-            .onPlayer(p, () -> snapshots.capture(p))
+            .onPlayer(
+                p,
+                () -> {
+                  // An admin menu may hold the real inventory: hand it back before the snapshot.
+                  if (plugin.admin != null) plugin.admin.vault.release(p);
+                  return snapshots.capture(p);
+                })
             .thenCompose(
                 snapshot ->
                     plugin.io(
@@ -423,6 +440,8 @@ public final class ArenaManager {
     s.eventId = UUID.randomUUID().toString();
     s.ambienceEpoch++;
     s.ambienceNight = false;
+    s.ambiencePhase = "";
+    s.revealed.clear();
     s.ambienceFinale = false;
     s.resultQueued = false;
     s.finishing = false;
@@ -607,9 +626,12 @@ public final class ArenaManager {
               if (announcement != null)
                 p.sendMessage(Component.text(announcement, NamedTextColor.WHITE));
               if (s.game != null && !s.game.alive().contains(uuid)) {
-                p.setGameMode(GameMode.ADVENTURE);
-                p.setAllowFlight(true);
-                p.setFlying(true);
+                if (s.game instanceof WerewolfGame wolf && wolf.actors().contains(uuid)) {
+                  // A pending hunter must still be able to click the shot menu.
+                  p.setGameMode(GameMode.ADVENTURE);
+                  p.setAllowFlight(true);
+                  p.setFlying(true);
+                } else p.setGameMode(GameMode.SPECTATOR);
               }
               if (p.getOpenInventory().getTopInventory().getHolder() instanceof CompassMenuHolder)
                 plugin.gui.open(p);

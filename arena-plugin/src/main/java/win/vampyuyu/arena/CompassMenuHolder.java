@@ -9,6 +9,9 @@ public final class CompassMenuHolder implements InventoryHolder {
   final UUID viewer;
   final String arenaId;
   final boolean skinned;
+  int leaveSlot = 53;
+  /** Phase this menu was drawn for; clicks are ignored once the game has moved on. */
+  String phase = "";
   final Map<Integer, UUID> targets = new HashMap<>();
   final Map<Integer, String> abilities = new HashMap<>();
   private final Inventory inventory;

@@ -15,9 +15,10 @@ def png_size(path):
     return struct.unpack(">II", data[16:24])
 
 class PackTest(unittest.TestCase):
-    def test_mcmeta_targets_1_21_9(self):
+    def test_mcmeta_supports_1_21_9_and_newer(self):
         meta = json.loads((PACK / "pack.mcmeta").read_text())["pack"]
-        self.assertEqual((meta["min_format"], meta["max_format"]), (69, 69))
+        self.assertEqual(meta["min_format"], 69)
+        self.assertGreater(meta["max_format"], 84, "must cover the 26.x releases")
         self.assertTrue(meta["description"])
 
     def test_font_tiles_fit_the_glyph_atlas_and_tile_each_window_exactly(self):
@@ -53,6 +54,12 @@ class PackTest(unittest.TestCase):
                     self.assertEqual(provider["file"], f"vampyuyu:font/{layout.tile_file(name, r, c)}.png")
             self.assertEqual(rows * th, gui_h)
         self.assertEqual(len(tiles), sum(r * layout.COLS for _, _, r in layout.BACKGROUNDS.values()))
+
+    def test_inventory_label_is_blank_in_every_shipped_language(self):
+        langs = sorted((PACK / "assets/minecraft/lang").glob("*.json"))
+        self.assertIn("en_us", [p.stem for p in langs])
+        for lang in langs:
+            self.assertEqual(json.loads(lang.read_text()), {"container.inventory": ""}, lang.name)
 
     def test_every_icon_has_texture_model_and_definition(self):
         icons = sorted(p.stem for p in (PACK / "assets/vampyuyu/textures/item/icon").glob("*.png"))

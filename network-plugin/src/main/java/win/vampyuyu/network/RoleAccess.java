@@ -13,6 +13,7 @@ import org.bukkit.command.RemoteConsoleCommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.permissions.PermissionAttachment;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -24,7 +25,15 @@ final class RoleAccess implements Listener {
             "kick", "minecraft.command.kick",
             "pardon", "minecraft.command.pardon",
             "fly", "vampyuyu.fly");
+    /** Builder tools every player gets on the creative server, on top of any role grants. */
+    static final Set<String> CREATIVE_BUILDER = Set.of(
+            "minecraft.command.give",
+            "minecraft.command.clear",
+            "minecraft.command.enchant",
+            "minecraft.command.teleport",
+            "minecraft.debugstick");
     private final JavaPlugin plugin;
+    private final Set<String> baseline;
     private final Map<UUID, PermissionAttachment> attachments = new HashMap<>();
     private final Map<UUID, Set<String>> applied = new HashMap<>();
     private final Set<UUID> flight = new HashSet<>();
@@ -38,8 +47,9 @@ final class RoleAccess implements Listener {
         return Set.copyOf(result);
     }
 
-    RoleAccess(JavaPlugin plugin) {
+    RoleAccess(JavaPlugin plugin, Set<String> baseline) {
         this.plugin = plugin;
+        this.baseline = Set.copyOf(baseline);
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
         Objects.requireNonNull(plugin.getCommand("fly")).setExecutor((sender, command, label, args) -> {
             if (!(sender instanceof Player player)) {
@@ -93,7 +103,8 @@ final class RoleAccess implements Listener {
 
     void apply(Player player, List<String> commands) {
         UUID uuid = player.getUniqueId();
-        Set<String> permissions = permissionsFor(commands);
+        Set<String> permissions = new HashSet<>(permissionsFor(commands));
+        permissions.addAll(baseline);
         if (!permissions.equals(applied.get(uuid))) {
             PermissionAttachment previous = attachments.remove(uuid);
             if (previous != null) player.removeAttachment(previous);
@@ -113,6 +124,12 @@ final class RoleAccess implements Listener {
             player.setFlying(false);
             player.setAllowFlight(false);
         }
+    }
+
+    @EventHandler
+    public void join(PlayerJoinEvent event) {
+        // The baseline must not wait for the first role sync.
+        apply(event.getPlayer(), List.of());
     }
 
     @EventHandler
