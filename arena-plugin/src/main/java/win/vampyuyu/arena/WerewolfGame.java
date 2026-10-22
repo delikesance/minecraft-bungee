@@ -159,6 +159,14 @@ public final class WerewolfGame implements GamePreset {
     return phase.name();
   }
 
+  /**
+   * Names the current turn: it changes whenever someone new must act, including one hunter's shot
+   * followed by another's, where the phase name stays the same.
+   */
+  public synchronized String turnKey() {
+    return phase + ":" + dawns + ":" + (phase == Phase.HUNTER_SHOT ? hunters.peekFirst() : "");
+  }
+
   public synchronized String role(UUID p) {
     return roles.getOrDefault(p, Role.VILLAGER).name();
   }
@@ -456,40 +464,6 @@ public final class WerewolfGame implements GamePreset {
     return !pack.isEmpty()
         && pack.stream().allMatch(ballots::containsKey)
         && pack.stream().map(ballots::get).distinct().count() == 1;
-  }
-
-  /** Practice participants act through the same rules as humans, without revealing secrets. */
-  public synchronized void simulateTurn(Set<UUID> bots, Random random) {
-    Phase initial = phase;
-    List<UUID> actors = new ArrayList<>(bots);
-    Collections.shuffle(actors, random);
-    for (UUID bot : actors) {
-      if (phase != initial) return;
-      if (!alive.contains(bot)
-          && !(phase == Phase.HUNTER_SHOT && Objects.equals(hunters.peekFirst(), bot))) continue;
-      if (phase == Phase.WITCH) {
-        if (roles.get(bot) != Role.WITCH) continue;
-        if (abilities(bot).containsKey("heal") && random.nextBoolean()) use(bot, "heal");
-        List<UUID> targets = new ArrayList<>(alive);
-        targets.remove(bot);
-        if (poisonUsed.contains(bot) || targets.isEmpty() || random.nextInt(4) != 0) continue;
-        select(bot, targets.get(random.nextInt(targets.size())));
-        continue;
-      }
-      int choices = phase == Phase.CUPID ? 2 : 1;
-      for (int choice = 0; choice < choices && phase == initial; choice++) {
-        List<UUID> targets = new ArrayList<>(alive);
-        Collections.shuffle(targets, random);
-        for (UUID target : targets) {
-          try {
-            select(bot, target);
-            break;
-          } catch (IllegalArgumentException unavailable) {
-            /* Try the next legal target. */
-          }
-        }
-      }
-    }
   }
 
   /** The arena's time limit ran out: nobody wins and every menu unlocks. */

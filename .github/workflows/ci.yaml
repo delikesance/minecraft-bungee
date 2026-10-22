@@ -1,12 +1,64 @@
-name: Check and publish
+name: Check, publish and deploy
 on:
   pull_request:
   push:
     branches: [main]
+  # Re-publishes and redeploys the selected branch, e.g. once the deployment secrets are set.
+  workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
-  check:
+  # Only the parts a change touches are checked. A change to the Dockerfile or this workflow checks everything.
+  changes:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      go: ${{ steps.filter.outputs.go == 'true' || steps.filter.outputs.all == 'true' }}
+      web: ${{ steps.filter.outputs.web == 'true' || steps.filter.outputs.all == 'true' }}
+      scripts: ${{ steps.filter.outputs.scripts == 'true' || steps.filter.outputs.all == 'true' }}
+      compose: ${{ steps.filter.outputs.compose == 'true' || steps.filter.outputs.all == 'true' }}
+      images: ${{ steps.filter.outputs.all == 'true' }}
+      plugins: ${{ steps.plugins.outputs.stages }}
+    steps:
+      - uses: actions/checkout@v4
+        if: github.event_name != 'workflow_dispatch'
+      - uses: dorny/paths-filter@v3
+        id: filter
+        if: github.event_name != 'workflow_dispatch'
+        with:
+          filters: |
+            all: [Dockerfile, .dockerignore, .github/workflows/**]
+            go: [go.mod, go.sum, cmd/**, internal/**]
+            web: [web/**]
+            scripts: [scripts/**, resource-pack/**, Makefile]
+            compose: [compose.*.yaml, .env.example, infra/**]
+            lobby: [lobby/**]
+            network: [network-plugin/**]
+            arena: [arena-plugin/**]
+            claims: [claims-plugin/**]
+      - name: Plugins to build
+        id: plugins
+        env:
+          ALL: ${{ steps.filter.outputs.all }}
+          LOBBY: ${{ steps.filter.outputs.lobby }}
+          NETWORK: ${{ steps.filter.outputs.network }}
+          ARENA: ${{ steps.filter.outputs.arena }}
+          CLAIMS: ${{ steps.filter.outputs.claims }}
+        run: |
+          stages=()
+          [[ $ALL == true || $LOBBY == true ]] && stages+=(lobby-build)
+          [[ $ALL == true || $NETWORK == true ]] && stages+=(network-build)
+          [[ $ALL == true || $ARENA == true ]] && stages+=(arena-build)
+          [[ $ALL == true || $CLAIMS == true ]] && stages+=(claims-build)
+          echo "stages=$(jq -cn '$ARGS.positional' --args "${stages[@]}")" >> "$GITHUB_OUTPUT"
+  go:
+    needs: changes
+    if: needs.changes.outputs.go == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -15,8 +67,12 @@ jobs:
           go-version-file: go.mod
       - run: go test ./...
       - run: go vet ./...
-      - run: make test-archives
-      - run: make test-pack
+  web:
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
@@ -24,27 +80,78 @@ jobs:
           cache-dependency-path: web/package-lock.json
       - run: npm ci && npm run build && npm audit --audit-level=high
         working-directory: web
+  scripts:
+    needs: changes
+    if: needs.changes.outputs.scripts == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: make test-archives
+      - run: make test-pack
+  compose:
+    needs: changes
+    if: needs.changes.outputs.compose == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
       - run: |
           docker compose --env-file .env.example -f compose.local.yaml config --quiet
           docker compose --env-file .env.example -f compose.prod.yaml config --quiet
+  # Builds (and tests) only the Paper plugins that changed, through their Dockerfile stage.
+  plugins:
+    needs: changes
+    if: needs.changes.outputs.plugins != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        stage: ${{ fromJSON(needs.changes.outputs.plugins) }}
+    steps:
+      - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
       - uses: docker/build-push-action@v6
         with:
           context: .
-          target: lobby
+          target: ${{ matrix.stage }}
           push: false
-          cache-from: type=gha,scope=lobby
-          cache-to: type=gha,mode=max,scope=lobby
+          cache-from: type=gha,scope=${{ matrix.stage }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.stage }}
+  # A Dockerfile change is checked against every image before it can reach main.
+  images:
+    needs: changes
+    if: needs.changes.outputs.images == 'true' && github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [panel, controller, server, lobby, tools]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
       - uses: docker/build-push-action@v6
         with:
           context: .
-          target: panel
+          target: ${{ matrix.target }}
           push: false
-          cache-from: type=gha,scope=panel
-          cache-to: type=gha,mode=max,scope=panel
+          cache-from: type=gha,scope=${{ matrix.target }}
+  # Single required status: passes when every check that ran passed.
+  check:
+    needs: [changes, go, web, scripts, compose, plugins, images]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "$RESULTS"
+          for result in $RESULTS; do
+            [[ $result == success || $result == skipped ]] || exit 1
+          done
+  # An image whose inputs did not change (see scripts/image-tag.sh) is not rebuilt: its existing
+  # content tag is reused and the commit tag is added to it.
   publish:
     needs: check
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: ${{ !cancelled() && needs.check.result == 'success' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -62,20 +169,70 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Image name
+      - name: Image name and content tag
         id: image
         env:
           REPOSITORY: ${{ github.repository }}
-        run: echo "name=ghcr.io/${REPOSITORY,,}-${{ matrix.target }}" >> "$GITHUB_OUTPUT"
+          TARGET: ${{ matrix.target }}
+        run: |
+          echo "name=ghcr.io/${REPOSITORY,,}-$TARGET" >> "$GITHUB_OUTPUT"
+          echo "tag=$(scripts/image-tag.sh "$TARGET")" >> "$GITHUB_OUTPUT"
+      - name: Reuse the image if its inputs are unchanged
+        id: reuse
+        env:
+          NAME: ${{ steps.image.outputs.name }}
+          TAG: ${{ steps.image.outputs.tag }}
+          SHA: ${{ github.sha }}
+        run: |
+          if docker buildx imagetools inspect "$NAME:$TAG" > /dev/null 2>&1; then
+            docker buildx imagetools create --tag "$NAME:$SHA" "$NAME:$TAG"
+            echo "Reused $NAME:$TAG" >> "$GITHUB_STEP_SUMMARY"
+            echo "hit=true" >> "$GITHUB_OUTPUT"
+          fi
       - uses: docker/build-push-action@v6
+        if: steps.reuse.outputs.hit != 'true'
         with:
           context: .
           target: ${{ matrix.target }}
           platforms: linux/amd64
           push: true
-          tags: ${{ steps.image.outputs.name }}:${{ github.sha }}
+          tags: |
+            ${{ steps.image.outputs.name }}:${{ steps.image.outputs.tag }}
+            ${{ steps.image.outputs.name }}:${{ github.sha }}
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
           cache-from: type=gha,scope=${{ matrix.target }}
           cache-to: type=gha,mode=max,scope=${{ matrix.target }}
+  # Runs scripts/deploy.sh on the production host. Connection settings are Actions variables; only the
+  # SSH key is a secret. Skipped with a warning until the DEPLOY_HOST variable is set.
+  deploy:
+    needs: publish
+    if: ${{ !cancelled() && needs.publish.result == 'success' }}
+    runs-on: ubuntu-latest
+    environment: production
+    concurrency:
+      group: production-deploy
+      cancel-in-progress: false
+    steps:
+      - name: Deploy over SSH
+        env:
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ vars.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ vars.DEPLOY_KNOWN_HOSTS }}
+          SHA: ${{ github.sha }}
+        run: |
+          if [[ -z $DEPLOY_HOST ]]; then
+            echo "::warning::The DEPLOY_HOST variable is not set: images are published but the server was not updated."
+            exit 0
+          fi
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          remote="cd $(printf '%q' "$DEPLOY_PATH") && git fetch --quiet origin main && git checkout --quiet --detach $SHA && ./scripts/deploy.sh $SHA"
+          ssh -i ~/.ssh/deploy_key -p "${DEPLOY_PORT:-22}" -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            "$DEPLOY_USER@$DEPLOY_HOST" "$remote"

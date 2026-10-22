@@ -62,7 +62,7 @@ services:
       options: {max-size: "5m", max-file: "2"}
 
   panel:
-    image: ${IMAGE_REPOSITORY:?Set IMAGE_REPOSITORY}-panel:${IMAGE_TAG:?Set IMAGE_TAG}
+    image: ${IMAGE_REPOSITORY:?Set IMAGE_REPOSITORY}-panel:${PANEL_IMAGE_TAG:-${IMAGE_TAG:?Set IMAGE_TAG}}
     user: "${PUID:-1000}:${PGID:-1000}"
     environment:
       PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:?Set PUBLIC_ORIGIN}
@@ -88,7 +88,7 @@ services:
       retries: 3
 
   controller:
-    image: ${IMAGE_REPOSITORY:?Set IMAGE_REPOSITORY}-controller:${IMAGE_TAG:?Set IMAGE_TAG}
+    image: ${IMAGE_REPOSITORY:?Set IMAGE_REPOSITORY}-controller:${CONTROLLER_IMAGE_TAG:-${IMAGE_TAG:?Set IMAGE_TAG}}
     user: "${PUID:-1000}:${PGID:-1000}"
     group_add: ["${DOCKER_GID:?Set DOCKER_GID to the Docker socket group}"]
     environment: {STACK_ID: "${STACK_ID:-vampyuyu-local}"}
@@ -130,7 +130,7 @@ services:
 
   lobby:
     <<: *game
-    image: ${IMAGE_REPOSITORY:?Set IMAGE_REPOSITORY}-lobby:${IMAGE_TAG:?Set IMAGE_TAG}
+    image: ${IMAGE_REPOSITORY:?Set IMAGE_REPOSITORY}-lobby:${LOBBY_IMAGE_TAG:-${IMAGE_TAG:?Set IMAGE_TAG}}
     environment:
       <<: *paper-env
       MEMORY: ${LOBBY_MEMORY:-1G}
@@ -156,7 +156,7 @@ services:
 
   creative:
     <<: *game
-    image: ${IMAGE_REPOSITORY:?Set IMAGE_REPOSITORY}-server:${IMAGE_TAG:?Set IMAGE_TAG}
+    image: ${IMAGE_REPOSITORY:?Set IMAGE_REPOSITORY}-server:${SERVER_IMAGE_TAG:-${IMAGE_TAG:?Set IMAGE_TAG}}
     environment:
       <<: *paper-env
       MEMORY: ${CREATIVE_MEMORY:-6G}
@@ -175,7 +175,7 @@ services:
 
   survival:
     <<: *game
-    image: ${IMAGE_REPOSITORY:?Set IMAGE_REPOSITORY}-server:${IMAGE_TAG:?Set IMAGE_TAG}
+    image: ${IMAGE_REPOSITORY:?Set IMAGE_REPOSITORY}-server:${SERVER_IMAGE_TAG:-${IMAGE_TAG:?Set IMAGE_TAG}}
     environment:
       <<: *paper-env
       MEMORY: ${SURVIVAL_MEMORY:-6G}
@@ -194,7 +194,7 @@ services:
 
   tools:
     profiles: [tools]
-    image: ${IMAGE_REPOSITORY:?Set IMAGE_REPOSITORY}-tools:${IMAGE_TAG:?Set IMAGE_TAG}
+    image: ${IMAGE_REPOSITORY:?Set IMAGE_REPOSITORY}-tools:${TOOLS_IMAGE_TAG:-${IMAGE_TAG:?Set IMAGE_TAG}}
     user: "${PUID:-1000}:${PGID:-1000}"
     network_mode: none
     volumes:

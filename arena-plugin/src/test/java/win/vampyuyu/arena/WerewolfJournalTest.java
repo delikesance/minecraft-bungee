@@ -24,11 +24,12 @@ public class WerewolfJournalTest {
     var lines = new ArrayList<String>();
     var game = new WerewolfGame(ids, 5, 5, 5, new Random(3), GameRules.Werewolf.defaults());
     game.journal(new WerewolfJournal("abcd1234", names(ids), lines::add));
-    var bots = new HashSet<>(ids);
+    var bots = Set.copyOf(ids);
+    var brain = new WerewolfBots(new Random(3));
     for (int turn = 0; turn < 200 && game.winner().isEmpty(); turn++) {
-      String phase = game.phase();
-      game.simulateTurn(bots, new Random(turn));
-      if (game.phase().equals(phase)) game.advance();
+      String key = game.turnKey();
+      brain.think(game, bots, 10_000, 10_000, true);
+      if (key.equals(game.turnKey())) game.advance();
     }
     assertFalse(game.winner().isEmpty());
     String all = String.join("\n", lines);

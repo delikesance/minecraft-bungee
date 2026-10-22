@@ -19,18 +19,21 @@ RUN --mount=type=cache,target=/go/pkg/mod go mod download
 RUN mkdir -p /go/pkg/mod && chmod 1777 /go/pkg/mod
 FROM go-base AS dev
 CMD ["go", "run", "./cmd/panel"]
+# The controller and tools binaries do not embed the dashboard, so they never wait for the web build.
 FROM go-base AS build
 COPY cmd ./cmd
 COPY internal ./internal
+RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build CGO_ENABLED=0 go build -trimpath -o /out/controller ./cmd/controller && CGO_ENABLED=0 go build -trimpath -o /out/network ./cmd/network
+FROM build AS panel-build
 COPY --from=web /web/dist ./internal/panel/static
-RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build CGO_ENABLED=0 go build -trimpath -o /out/panel ./cmd/panel && CGO_ENABLED=0 go build -trimpath -o /out/controller ./cmd/controller && CGO_ENABLED=0 go build -trimpath -o /out/network ./cmd/network
+RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build CGO_ENABLED=0 go build -trimpath -o /out/panel ./cmd/panel
 
 FROM alpine:3.22@sha256:5291449c3df73caf6ed85e649dec1b9e818b39a5d8c871e97afc13e9cd5e8fa8 AS runtime
 RUN apk add --no-cache ca-certificates && addgroup -g 1000 app && adduser -D -u 1000 -G app app
 USER 1000:1000
 WORKDIR /app
 FROM runtime AS panel
-COPY --from=build /out/panel /app/panel
+COPY --from=panel-build /out/panel /app/panel
 COPY --from=pack /out/vampyuyu-menus.zip /app/vampyuyu-menus.zip
 ENV MENU_PACK_FILE=/app/vampyuyu-menus.zip
 EXPOSE 8080
@@ -42,21 +45,26 @@ FROM runtime AS tools
 COPY --from=build /out/network /app/network
 ENTRYPOINT ["/app/network"]
 
+# Maven dependencies live in their own layer (keyed on pom.xml) so a source-only change reuses them,
+# including from the CI layer cache where BuildKit cache mounts are not kept.
 FROM maven:3-eclipse-temurin-25@sha256:9b5f82b7166db6112eb123ba310a9e010ec3fe95022ac0728f491121563dfbab AS lobby-build
 WORKDIR /build
 COPY lobby/pom.xml ./
+RUN mvn --batch-mode --quiet dependency:go-offline
 COPY lobby/src ./src
-RUN --mount=type=cache,target=/root/.m2 mvn --batch-mode package
+RUN mvn --batch-mode package
 FROM maven:3-eclipse-temurin-25@sha256:9b5f82b7166db6112eb123ba310a9e010ec3fe95022ac0728f491121563dfbab AS network-build
 WORKDIR /build
 COPY network-plugin/pom.xml ./
+RUN mvn --batch-mode --quiet dependency:go-offline
 COPY network-plugin/src ./src
-RUN --mount=type=cache,target=/root/.m2 mvn --batch-mode package
+RUN mvn --batch-mode package
 FROM maven:3-eclipse-temurin-25@sha256:9b5f82b7166db6112eb123ba310a9e010ec3fe95022ac0728f491121563dfbab AS arena-build
 WORKDIR /build
 COPY arena-plugin/pom.xml ./
+RUN mvn --batch-mode --quiet dependency:go-offline
 COPY arena-plugin/src ./src
-RUN --mount=type=cache,target=/root/.m2 mvn --batch-mode package
+RUN mvn --batch-mode package
 FROM gradle:jdk25@sha256:ca424744a6a45a575f333edea680696d980999c461be38b1574a4c70d5455f24 AS claims-build
 WORKDIR /build
 COPY claims-plugin/ ./

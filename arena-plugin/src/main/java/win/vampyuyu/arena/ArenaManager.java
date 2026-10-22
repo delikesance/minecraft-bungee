@@ -464,6 +464,8 @@ public final class ArenaManager {
     if (s.config.village().enabled())
       for (UUID player : s.players.keySet()) s.homes.put(player, houses.get(houseIndex++));
     s.game = presets.get(s.config.preset()).create(s.config, Set.copyOf(s.players.keySet()));
+    s.botBrain = s.bots.isEmpty() ? null : new WerewolfBots(new Random());
+    s.observedTurn = s.game instanceof WerewolfGame game ? game.turnKey() : "";
     s.journal.close();
     s.journal = WerewolfJournal.SILENT;
     if (s.game instanceof WerewolfGame wolf && plugin.werewolfLogs != null) {
@@ -598,26 +600,48 @@ public final class ArenaManager {
         stop(s.config.id(), "COMPLETED");
         continue;
       }
-      if (now >= s.phaseEndsAt) {
-        String before = s.game.phase();
-        s.journal.log(
-            "CLOCK", before + " timer expired" + (s.bots.isEmpty() ? "" : " · the bots act first"));
-        if (s.game instanceof WerewolfGame werewolf && !s.bots.isEmpty())
-          werewolf.simulateTurn(Set.copyOf(s.bots), new Random());
-        if (s.game.phase().equals(before)) s.game.advance();
+      boolean due = now >= s.phaseEndsAt;
+      if (due) s.journal.log("CLOCK", s.game.phase() + " timer expired");
+      if (s.game instanceof WerewolfGame werewolf && s.botBrain != null) {
+        String before = werewolf.turnKey();
+        bots(s, werewolf, now, due);
+        // A bot ended the turn (the seer's vision, the pack agreeing, the witch going to sleep...).
+        if (!werewolf.turnKey().equals(before)) {
+          phaseChanged(s);
+          continue;
+        }
+      }
+      if (due) {
+        s.game.advance();
         phaseChanged(s);
       }
     }
   }
 
+  /**
+   * Lets the practice bots of a Werewolf game act. Their clicks go through the game like anyone's,
+   * so the game's journal already records each of them with the game's answer or refusal.
+   */
+  private void bots(ArenaSession s, WerewolfGame game, long now, boolean deadline) {
+    s.botBrain.think(game, Set.copyOf(s.bots), now, s.phaseEndsAt, deadline);
+  }
+
   public synchronized void phaseChanged(ArenaSession s) {
     // Notices can come from a click, a bot or a timeout (e.g. Cupid running out of time).
     if (plugin.gui != null) plugin.gui.deliverNotices(s);
-    if (s.game == null || s.stopping || s.finishing || s.game.phase().equals(s.observedPhase))
+    if (s.game == null || s.stopping || s.finishing) return;
+    if (s.game.phase().equals(s.observedPhase)) {
+      // A new turn inside the same phase (one hunter's shot after another's) gets a fresh timer.
+      if (s.game instanceof WerewolfGame game && !game.turnKey().equals(s.observedTurn)) {
+        s.observedTurn = game.turnKey();
+        s.phaseEndsAt = System.currentTimeMillis() + phaseMillis(s);
+      }
       return;
+    }
     String previous = s.observedPhase;
     s.ambienceEpoch++;
     s.observedPhase = s.game.phase();
+    if (s.game instanceof WerewolfGame game) s.observedTurn = game.turnKey();
     s.phaseEndsAt = System.currentTimeMillis() + phaseMillis(s);
     clock(s, previous + " → " + s.observedPhase + ", the presentation plays first");
     // Taken now: by the time the presentation reaches it, the game may have moved on.
