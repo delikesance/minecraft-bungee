@@ -358,11 +358,7 @@ public final class ArenaManager {
     if (s != null) {
       if (s.game != null && !s.stopping) s.abandoned.add(id);
       s.players.remove(id);
-      if (s.game != null) {
-        s.game.remove(id);
-        // A departure can skip a turn (even the opening one); present the new phase right away.
-        phaseChanged(s);
-      }
+      if (s.game != null) s.game.remove(id);
       if (!s.bots.isEmpty() && s.players.keySet().stream().allMatch(s.bots::contains)) {
         stop(s.config.id(), "PRACTICE");
       }
