@@ -323,6 +323,7 @@ final class WerewolfAmbience {
           epoch,
           true,
           player -> {
+            screen.hideVotes(player);
             player.sendMessage(separator("Verdict", WerewolfPresentation.VOTE));
             news.forEach(player::sendMessage);
             if (news.isEmpty()) player.sendMessage(Component.text(subtitle + ".", INK_MUTED));

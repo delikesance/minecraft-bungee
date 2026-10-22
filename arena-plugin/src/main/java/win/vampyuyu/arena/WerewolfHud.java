@@ -186,6 +186,16 @@ final class WerewolfHud {
     }
   }
 
+  /**
+   * Takes the ballots off the name tags as soon as the vote is counted: they last showed the
+   * tally of the previous second, which a last-moment vote may contradict.
+   */
+  void hideVotes(Player p) {
+    Scoreboard board = boards.get(p.getUniqueId());
+    Objective tags = board == null ? null : board.getObjective("votes");
+    if (tags != null && tags.getDisplaySlot() != null) tags.setDisplaySlot(null);
+  }
+
   /** Back to the server's scoreboard and no bossbar, when the player leaves or the game ends. */
   void clear(Player p) {
     BossBar bar = bars.remove(p.getUniqueId());
