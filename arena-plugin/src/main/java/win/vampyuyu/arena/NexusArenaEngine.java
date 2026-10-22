@@ -19,6 +19,7 @@ public final class NexusArenaEngine extends JavaPlugin {
   ArenaTools tools;
   MenuSkin skin;
   EventRewards rewards;
+  WerewolfLogs werewolfLogs;
   RedisManager redis;
   CrossServerBridge bridge;
   String serverId;
@@ -58,6 +59,11 @@ public final class NexusArenaEngine extends JavaPlugin {
                     return m;
                   })
               .toList();
+      werewolfLogs =
+          new WerewolfLogs(
+              getDataFolder().toPath().resolve("logs").resolve("werewolf"),
+              getLogger(),
+              !"false".equalsIgnoreCase(System.getenv().getOrDefault("WEREWOLF_LOG_CONSOLE", "")));
       arenas = new ArenaManager(this);
       gui = new CompassGUI(this);
       ambience = new WerewolfAmbience(this);
@@ -286,7 +292,11 @@ public final class NexusArenaEngine extends JavaPlugin {
     clock.shutdownNow();
     if (redis != null) redis.close();
     if (arenas != null) {
-      for (ArenaSession session : arenas.all()) session.ambienceEpoch++;
+      for (ArenaSession session : arenas.all()) {
+        session.ambienceEpoch++;
+        session.journal.log("STOP", "The server is shutting down");
+        session.journal.close();
+      }
       // Paper shutdown runs on its main thread. Folia snapshots are intentionally
       // retained for recovery on login; never mutate foreign-region entities here.
       boolean folia;

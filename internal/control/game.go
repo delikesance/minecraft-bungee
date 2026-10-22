@@ -12,6 +12,8 @@ import (
 	"time"
 )
 
+// GameLogName is a werewolf journal's file name, as the arena engine writes it.
+var GameLogName = regexp.MustCompile(`^[A-Za-z0-9_-]{1,120}\.log$`)
 var gameUUID = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 var gameActions = map[string]bool{"lobby-build": true, "arena-save": true, "arena-delete": true, "arena-start": true, "arena-practice-start": true, "arena-stop": true, "arena-announce": true, "arena-reload": true, "arena-join": true, "arena-leave": true, "arena-ban": true, "arena-kick": true, "arena-unban": true, "gamemode": true, "restore-inventory": true, "heal": true, "feed": true, "clear-effects": true, "teleport-spawn": true, "set-spawn": true, "kick": true, "ban": true, "pardon": true, "pardon-name": true, "whitelist-add": true, "whitelist-remove": true, "broadcast": true, "save": true, "whitelist": true, "difficulty": true, "time": true, "weather": true, "pvp": true, "gamerule": true}
 
@@ -69,9 +71,17 @@ func (s *Server) gameProxy(w http.ResponseWriter, r *http.Request, id, method, p
 		return
 	}
 	defer response.Body.Close()
-	w.Header().Set("Content-Type", "application/json")
+	limit := int64(2 << 20)
+	if strings.HasPrefix(path, "/arenas/logs/") && response.Header.Get("Content-Type") == "text/plain; charset=utf-8" {
+		// A game journal: plain text to download, never JSON.
+		limit = 32 << 20
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.Header().Set("Content-Disposition", response.Header.Get("Content-Disposition"))
+	} else {
+		w.Header().Set("Content-Type", "application/json")
+	}
 	w.WriteHeader(response.StatusCode)
-	io.Copy(w, io.LimitReader(response.Body, 2<<20))
+	io.Copy(w, io.LimitReader(response.Body, limit))
 }
 func (s *Server) gameRoutes(mux *http.ServeMux) {
 	for _, kind := range []string{"state", "materials", "arenas"} {
@@ -79,6 +89,17 @@ func (s *Server) gameRoutes(mux *http.ServeMux) {
 			s.gameProxy(w, r, r.PathValue("id"), "GET", "/"+kind, nil)
 		})
 	}
+	mux.HandleFunc("GET /servers/{id}/game/logs", func(w http.ResponseWriter, r *http.Request) {
+		s.gameProxy(w, r, r.PathValue("id"), "GET", "/arenas/logs", nil)
+	})
+	mux.HandleFunc("GET /servers/{id}/game/logs/{name}", func(w http.ResponseWriter, r *http.Request) {
+		name := r.PathValue("name")
+		if !GameLogName.MatchString(name) {
+			JSON(w, 400, map[string]string{"error": "Invalid log name"})
+			return
+		}
+		s.gameProxy(w, r, r.PathValue("id"), "GET", "/arenas/logs/"+name, nil)
+	})
 	for _, method := range []string{"GET", "PUT"} {
 		mux.HandleFunc(method+" /servers/{id}/game/players/{uuid}/{container}", func(w http.ResponseWriter, r *http.Request) {
 			id, uuid, container := r.PathValue("id"), r.PathValue("uuid"), r.PathValue("container")

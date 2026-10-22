@@ -8,6 +8,10 @@ public final class ArenaSession {
   public final Map<UUID, String> players = new ConcurrentHashMap<>();
   public final Set<UUID> bots = ConcurrentHashMap.newKeySet();
   public volatile GamePreset game;
+
+  /** The running werewolf game's play-by-play; silent for other games. */
+  volatile WerewolfJournal journal = WerewolfJournal.SILENT;
+
   public volatile long startedAt, phaseEndsAt;
   public volatile String observedPhase = "WAITING";
   public volatile boolean stopping;

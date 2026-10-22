@@ -50,6 +50,30 @@ final class ArenaHttpApi implements AutoCloseable {
         reply(request, 200, out);
         return;
       }
+      String path = request.getRequestURI().getPath();
+      if (request.getRequestMethod().equals("GET") && path.equals("/arenas/logs")) {
+        reply(request, 200, Map.of("logs", plugin.werewolfLogs.list()));
+        return;
+      }
+      if (request.getRequestMethod().equals("GET") && path.startsWith("/arenas/logs/")) {
+        java.nio.file.Path file;
+        try {
+          file = plugin.werewolfLogs.file(path.substring("/arenas/logs/".length()));
+        } catch (NoSuchElementException missing) {
+          reply(request, 404, Map.of("error", missing.getMessage()));
+          return;
+        }
+        // A running game's journal is sent as far as it is written.
+        byte[] text = java.nio.file.Files.readAllBytes(file);
+        request.getResponseHeaders().set("Content-Type", "text/plain; charset=utf-8");
+        request.getResponseHeaders().set("Cache-Control", "no-store");
+        request
+            .getResponseHeaders()
+            .set("Content-Disposition", "attachment; filename=\"" + file.getFileName() + "\"");
+        request.sendResponseHeaders(200, text.length);
+        request.getResponseBody().write(text);
+        return;
+      }
       if (!request.getRequestMethod().equals("POST")
           || !request.getRequestURI().getPath().equals("/arenas/action")) {
         reply(request, 404, Map.of("error", "Unknown arena endpoint"));

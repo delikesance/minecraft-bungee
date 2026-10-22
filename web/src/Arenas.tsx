@@ -8,6 +8,7 @@ import {
   type FreeplayRules,
 } from "./ArenaRulesEditor";
 import { useConfirm } from "./ConfirmDialog";
+import { GameLogs } from "./GameLogs";
 
 export type Config = {
   id: string;
@@ -1050,6 +1051,7 @@ export function Arenas({
               </fieldset>
             </form>
           )}
+          <GameLogs server={server} />
           <section className="arena-moderation">
             <div>
               <span className="eyebrow">ACROSS ALL YOUR WORLDS</span>

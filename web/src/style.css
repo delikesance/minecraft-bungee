@@ -2046,6 +2046,17 @@ body.confirmation-open {
   margin-right: auto;
   color: var(--muted);
 }
+.game-logs a.button {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--ink);
+  border-radius: 6px;
+  padding: 9px 15px;
+  text-decoration: none;
+}
+.game-logs a.button:hover {
+  border-color: var(--accent-hover);
+}
 @media (max-width: 900px) {
   .arena-layout,
   .arena-summary {

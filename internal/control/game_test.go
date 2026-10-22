@@ -105,3 +105,41 @@ func (a arenaTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 	}
 	return (rewriteTransport{base: a.base}).RoundTrip(r)
 }
+
+func TestGameLogsAreProxiedAsPlainTextDownloads(t *testing.T) {
+	var seen []string
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		seen = append(seen, r.URL.Path)
+		if r.URL.Path == "/arenas/logs" {
+			io.WriteString(w, `{"logs":[]}`)
+			return
+		}
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.Header().Set("Content-Disposition", `attachment; filename="game.log"`)
+		io.WriteString(w, "12:00:00.000 +00:00.0 [abcd1234] [Night 1] DEAL     8 players\n")
+	}))
+	defer upstream.Close()
+	docker := fakeDocker(t, func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "/containers/json") {
+			io.WriteString(w, `[{"Id":"managed"}]`)
+		} else {
+			io.WriteString(w, `{"NetworkSettings":{"Networks":{"game":{"IPAddress":"127.0.0.1"}}}}`)
+		}
+	})
+	s := &Server{Docker: docker, Token: strings.Repeat("c", 64), GameToken: strings.Repeat("g", 64), GameHTTP: &http.Client{Transport: arenaTransport{t: t, base: upstream.URL}}}
+	if w := controllerRequest(s, "GET", "/servers/creative/game/logs", nil); w.Code != 200 || w.Header().Get("Content-Type") != "application/json" {
+		t.Fatal(w.Code, w.Header())
+	}
+	w := controllerRequest(s, "GET", "/servers/creative/game/logs/2026-10-22_18-55-01_village_abcd1234.log", nil)
+	if w.Code != 200 || w.Header().Get("Content-Type") != "text/plain; charset=utf-8" || !strings.Contains(w.Body.String(), "DEAL") || !strings.Contains(w.Header().Get("Content-Disposition"), "game.log") {
+		t.Fatal(w.Code, w.Header(), w.Body.String())
+	}
+	for _, bad := range []string{"..%2Fsecrets.log", "game.txt", "a%20b.log"} {
+		if w := controllerRequest(s, "GET", "/servers/creative/game/logs/"+bad, nil); w.Code == 200 {
+			t.Fatal(bad, w.Code)
+		}
+	}
+	if len(seen) != 2 || seen[0] != "/arenas/logs" || seen[1] != "/arenas/logs/2026-10-22_18-55-01_village_abcd1234.log" {
+		t.Fatal(seen)
+	}
+}
