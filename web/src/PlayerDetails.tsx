@@ -1,6 +1,13 @@
 import { useConfirm } from "./ConfirmDialog";
 import { useEffect, useRef, useState } from "react";
 import { api, APIError } from "./api";
+import {
+  ItemIcon,
+  McText,
+  Sprite,
+  useItemLabel,
+  useTextureStatus,
+} from "./ItemIcon";
 
 type Slot = {
   slot: number;
@@ -49,6 +56,67 @@ function label(slot: number, ender: boolean) {
           40: "Off hand",
         }[slot] || `Slot ${slot}`;
 }
+const emptySprites: Record<number, string> = {
+  36: "boots",
+  37: "leggings",
+  38: "chestplate",
+  39: "helmet",
+  40: "shield",
+};
+function enchanted(slot: Slot) {
+  return /enchant/i.test(slot.details);
+}
+type Hover = { index: number; x: number; y: number };
+
+function SlotTooltip({
+  item,
+  name,
+  at,
+}: {
+  item?: Slot;
+  name: string;
+  at: Hover;
+}) {
+  const label = useItemLabel(item?.amount ? item.material : "");
+  const [pos, setPos] = useState({ x: at.x, y: at.y });
+  useEffect(() => {
+    setPos({ x: at.x, y: at.y });
+    const move = (e: MouseEvent) => setPos({ x: e.clientX, y: e.clientY });
+    window.addEventListener("mousemove", move);
+    return () => window.removeEventListener("mousemove", move);
+  }, [at]);
+  const renamed = !!item?.amount && item.name && item.name !== item.material;
+  const flip = pos.x > window.innerWidth - 300;
+  return (
+    <div
+      className="mc-tooltip"
+      role="tooltip"
+      style={{
+        left: pos.x + (flip ? -14 : 14),
+        top: pos.y - 14,
+        transform: flip ? "translateX(-100%)" : undefined,
+      }}
+    >
+      {item?.amount ? (
+        <>
+          <McText
+            text={renamed ? item.name : label || itemName(item.material)}
+            color={enchanted(item) ? "#55ffff" : "#ffffff"}
+          />
+          {renamed && label && <McText text={label} color="#aaaaaa" />}
+          {item.amount > 1 && (
+            <McText text={`Count: ${item.amount}`} color="#aaaaaa" />
+          )}
+          {item.custom && <McText text="Custom properties" color="#ff55ff" />}
+          <McText text={item.material} color="#777777" />
+        </>
+      ) : (
+        <McText text="Empty slot" color="#aaaaaa" />
+      )}
+      <McText text={name} color="#777777" />
+    </div>
+  );
+}
 export function PlayerDetails({
   player,
   initialServer,
@@ -83,6 +151,8 @@ export function PlayerDetails({
     [],
   );
   const [backup, setBackup] = useState("");
+  const [hover, setHover] = useState<Hover | null>(null);
+  const textureStatus = useTextureStatus();
   const backupRequest = useRef(0);
   const dialog = useRef<HTMLElement>(null);
   const dirty = useRef(false),
@@ -254,16 +324,24 @@ export function PlayerDetails({
       setBusy(false);
     }
   }
+  const selectedLabel = useItemLabel(slot?.amount ? slot.material : "");
   const renderSlot = (index: number) => {
     const item = view?.slots.find((s) => s.slot === index);
+    const sprite = container === "inventory" && emptySprites[index];
     return (
       <button
         key={index}
-        className={`inventory-slot ${selected === index ? "slot-selected" : ""} ${item?.amount ? "has-item" : ""}`}
+        className={`mc-slot ${selected === index ? "selected" : ""}`}
         aria-label={`${label(index, container === "ender")}: ${item?.amount ? `${itemName(item.material)} × ${item.amount}` : "empty"}`}
         aria-pressed={selected === index}
         disabled={busy}
-        title={item?.name}
+        onMouseEnter={(e) => setHover({ index, x: e.clientX, y: e.clientY })}
+        onMouseLeave={() => setHover(null)}
+        onFocus={(e) => {
+          const r = e.currentTarget.getBoundingClientRect();
+          setHover({ index, x: r.right, y: r.top });
+        }}
+        onBlur={() => setHover(null)}
         onClick={async () => {
           if (await discard()) {
             dirty.current = false;
@@ -276,10 +354,14 @@ export function PlayerDetails({
           }
         }}
       >
-        <small>{label(index, container === "ender")}</small>
-        <span>{item?.amount ? itemName(item.material) : "—"}</span>
-        {!!item?.amount && <b>{item.amount}</b>}
-        {item?.custom && <i title="Has custom properties">✦</i>}
+        {item?.amount ? (
+          <ItemIcon material={item.material} glint={enchanted(item)} />
+        ) : (
+          sprite && <Sprite texture={`gui/sprites/container/slot/${sprite}`} />
+        )}
+        {!!item && item.amount > 1 && (
+          <McText className="mc-count" text={String(item.amount)} />
+        )}
       </button>
     );
   };
@@ -460,25 +542,63 @@ export function PlayerDetails({
               </p>
             )}
             <div className="inventory-workspace">
-              <div>
-                {container === "inventory" ? (
-                  <>
-                    <div className="equipment-grid">
-                      {[39, 38, 37, 36, 40].map(renderSlot)}
-                    </div>
-                    <p className="eyebrow">STORAGE</p>
-                    <div className="inventory-grid">
-                      {Array.from({ length: 27 }, (_, i) => renderSlot(i + 9))}
-                    </div>
-                    <p className="eyebrow">HOTBAR</p>
-                    <div className="inventory-grid">
-                      {Array.from({ length: 9 }, (_, i) => renderSlot(i))}
-                    </div>
-                  </>
-                ) : (
-                  <div className="inventory-grid">
-                    {Array.from({ length: 27 }, (_, i) => renderSlot(i))}
-                  </div>
+              <div className="mc-stage">
+                <div className="mc-window">
+                  {container === "inventory" ? (
+                    <>
+                      <div className="mc-top">
+                        <div className="mc-column">
+                          {[39, 38, 37, 36].map(renderSlot)}
+                        </div>
+                        <div className="mc-player">
+                          <McText text={player.name} />
+                          <McText
+                            text={`Level ${view.player.level}`}
+                            color="#80ff20"
+                          />
+                        </div>
+                        <div className="mc-offhand">{renderSlot(40)}</div>
+                      </div>
+                      <McText
+                        className="mc-title"
+                        text="Inventory"
+                        color="#404040"
+                        shadow={false}
+                      />
+                      <div className="mc-grid">
+                        {Array.from({ length: 27 }, (_, i) =>
+                          renderSlot(i + 9),
+                        )}
+                      </div>
+                      <div className="mc-grid mc-hotbar">
+                        {Array.from({ length: 9 }, (_, i) => renderSlot(i))}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <McText
+                        className="mc-title"
+                        text="Ender Chest"
+                        color="#404040"
+                        shadow={false}
+                      />
+                      <div className="mc-grid">
+                        {Array.from({ length: 27 }, (_, i) => renderSlot(i))}
+                      </div>
+                    </>
+                  )}
+                </div>
+                {hover && (
+                  <SlotTooltip
+                    item={view.slots.find((s) => s.slot === hover.index)}
+                    name={label(hover.index, container === "ender")}
+                    at={hover}
+                  />
+                )}
+                {textureStatus && (
+                  <p className="console-note">
+                    Item textures unavailable: {textureStatus}
+                  </p>
                 )}
               </div>
               <form
@@ -491,7 +611,16 @@ export function PlayerDetails({
                 <span className="eyebrow">
                   {label(selected, container === "ender")}
                 </span>
-                <h3>{slot?.amount ? itemName(slot.material) : "Empty slot"}</h3>
+                <h3 className="slot-editor-item">
+                  {!!slot?.amount && (
+                    <span className="mc-slot mc-preview">
+                      <ItemIcon material={slot.material} />
+                    </span>
+                  )}
+                  {slot?.amount
+                    ? selectedLabel || itemName(slot.material)
+                    : "Empty slot"}
+                </h3>
                 {slot?.custom && (
                   <p className="console-note">
                     ✦ Custom item. Changing only the amount preserves its
