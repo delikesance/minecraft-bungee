@@ -298,10 +298,14 @@ final class WerewolfAmbience {
     String event = s.eventId;
     long epoch = s.ambienceEpoch;
     UUID lynched = verdict.lynched();
+    // Only the vote's dead: the lynched and a lover who follows them. Any other death (e.g. a
+    // departure's lover) keeps its own announcement at dusk.
     List<UUID> fallen = new ArrayList<>();
-    for (UUID id : s.players.keySet())
-      if (!game.alive().contains(id) && !s.revealed.contains(id)) fallen.add(id);
-    List<Component> news = deaths(s, game); // Announced now, so dusk does not repeat them.
+    if (lynched != null) fallen.add(lynched);
+    UUID grieving = lynched == null ? null : game.partner(lynched);
+    if (grieving != null) fallen.add(grieving);
+    fallen.removeIf(id -> game.alive().contains(id) || s.revealed.contains(id));
+    List<Component> news = deaths(s, game, fallen); // Announced now, so dusk does not repeat them.
     String heading = lynched == null ? "Nobody is eliminated" : "☠ " + s.players.get(lynched);
     String subtitle =
         lynched == null ? "No majority: the village spares everyone" : "The village has spoken";
@@ -310,12 +314,7 @@ final class WerewolfAmbience {
       Player p = Bukkit.getPlayer(id);
       if (p == null) continue;
       String role = game.role(id);
-      String cause =
-          id.equals(lynched)
-              ? "The village voted you out"
-              : lynched != null && lynched.equals(game.partner(id))
-                  ? "You died of grief"
-                  : "You fell";
+      String cause = id.equals(lynched) ? "The village voted you out" : "You died of grief";
       dispatch(
           s,
           p,
@@ -326,7 +325,7 @@ final class WerewolfAmbience {
             screen.hideVotes(player);
             player.sendMessage(separator("Verdict", WerewolfPresentation.VOTE));
             news.forEach(player::sendMessage);
-            if (news.isEmpty()) player.sendMessage(Component.text(subtitle + ".", INK_MUTED));
+            if (lynched == null) player.sendMessage(Component.text(subtitle + ".", INK_MUTED));
             if (!enabled) return;
             if (fallen.contains(id)) {
               title(
@@ -368,9 +367,16 @@ final class WerewolfAmbience {
   }
 
   private List<Component> deaths(ArenaSession s, WerewolfGame game) {
+    return deaths(s, game, s.players.keySet());
+  }
+
+  /** The same, for these players only. */
+  private List<Component> deaths(ArenaSession s, WerewolfGame game, Collection<UUID> among) {
     List<Component> lines = new ArrayList<>();
     for (var entry : s.players.entrySet())
-      if (!game.alive().contains(entry.getKey()) && s.revealed.add(entry.getKey()))
+      if (among.contains(entry.getKey())
+          && !game.alive().contains(entry.getKey())
+          && s.revealed.add(entry.getKey()))
         lines.add(
             Component.text(
                 "☠ " + WerewolfPresentation.deathLine(entry.getValue(), game.role(entry.getKey())),
