@@ -139,7 +139,7 @@ public final class WerewolfGame implements GamePreset {
               "At night, protect one player, including yourself. Never the same target twice in a"
                   + " row.";
           case SEER -> "At night, inspect one other living player.";
-          case WEREWOLF -> "At night, vote to hunt a non-wolf. Night chat is private to wolves.";
+          case WEREWOLF -> "At night, open your claw and vote for a non-wolf to hunt. There is no night chat.";
           default -> "Discuss by day, then vote to identify the wolves.";
         })
         + bond;
