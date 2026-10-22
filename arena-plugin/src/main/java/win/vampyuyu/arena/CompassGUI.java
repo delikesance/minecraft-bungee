@@ -79,24 +79,12 @@ public final class CompassGUI implements Listener {
     p.getInventory().setItem(8, item);
   }
 
-  /** Werewolves carry a claw instead of the compass; it opens the same menu and works as the key. */
-  void arm(Player p, String role) {
-    if (!role.equals("WEREWOLF")) {
-      // Menus open by themselves during a village game; the compass is no longer needed.
-      p.getInventory().setItem(8, null);
-      return;
-    }
-    ItemStack claw =
-        item(
-            Material.BONE,
-            "Werewolf claw",
-            "Vote for tonight's victim with the other wolves",
-            "Right-click to open the voting menu");
-    var meta = claw.getItemMeta();
-    meta.displayName(text("Werewolf claw", NamedTextColor.RED));
-    meta.getPersistentDataContainer().set(key, PersistentDataType.BYTE, (byte) 1);
-    claw.setItemMeta(meta);
-    p.getInventory().setItem(8, claw);
+  /**
+   * Menus open by themselves during a village game, so nobody keeps the compass: an item in hand
+   * that only some roles carried would give them away.
+   */
+  void disarm(Player p) {
+    p.getInventory().setItem(8, null);
   }
 
   public void open(Player p) {
@@ -200,8 +188,9 @@ public final class CompassGUI implements Listener {
 
   private static final TextColor GOLD = TextColor.color(0xe9d99b);
 
-  /** Pushes private game notices (the lovers' bond) to their recipients only, with a title and sound. */
-  private void deliverNotices(ArenaSession s) {
+  /** Pushes private game notices to their recipients only; the lovers' bond gets a title and sound. */
+  void deliverNotices(ArenaSession s) {
+    if (s.game == null) return;
     for (var notice : s.game.drainNotices().entrySet()) {
       Player target = Bukkit.getPlayer(notice.getKey());
       if (target == null) continue;
@@ -210,6 +199,7 @@ public final class CompassGUI implements Listener {
           target,
           () -> {
             target.sendMessage(text(message, NamedTextColor.LIGHT_PURPLE));
+            if (!message.startsWith(WerewolfGame.LOVE_NOTICE)) return null;
             target.showTitle(
                 net.kyori.adventure.title.Title.title(
                     text("♥ In love", NamedTextColor.LIGHT_PURPLE),
@@ -305,7 +295,7 @@ public final class CompassGUI implements Listener {
                 "Stay within the arena. Your original items are stored.",
                 game instanceof FreeplayGame
                     ? friendly(game.help(p.getUniqueId()), s)
-                    : "Day ties and night ties eliminate nobody."),
+                    : "Ties eliminate nobody. Wolves win once no villager is left."),
             "book"));
     place(
         inv,
@@ -380,7 +370,7 @@ public final class CompassGUI implements Listener {
     return raw < 81 ? raw - 54 + 9 : raw - 81;
   }
 
-  /** Empties the menu half of the inventory; hotbar slot 8 keeps the claw or compass. */
+  /** Empties the menu half of the inventory, leaving hotbar slot 8 alone. */
   private void clearBottom(Player p) {
     for (int i = 0; i < 36; i++) if (i != 8) p.getInventory().setItem(i, null);
   }

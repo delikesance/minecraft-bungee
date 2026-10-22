@@ -26,9 +26,71 @@ public class ExpandedGameTest {
 
   @Test
   public void automaticCastIncludesAllSpecialRoles() {
-    var g = new WerewolfGame(players(8), 5, 5, 5, new Random(2), GameRules.Werewolf.defaults());
+    var g = new WerewolfGame(players(10), 5, 5, 5, new Random(2), GameRules.Werewolf.defaults());
     for (String role : List.of("CUPID", "HUNTER", "WITCH", "GUARD", "SEER", "WEREWOLF", "VILLAGER"))
-      assertTrue(players(8).stream().anyMatch(p -> g.role(p).equals(role)));
+      assertTrue(players(10).stream().anyMatch(p -> g.role(p).equals(role)));
+  }
+
+  private Map<String, Long> cast(int n) {
+    var g = new WerewolfGame(players(n), 5, 5, 5, new Random(n), GameRules.Werewolf.defaults());
+    return players(n).stream()
+        .collect(java.util.stream.Collectors.groupingBy(g::role, java.util.stream.Collectors.counting()));
+  }
+
+  @Test
+  public void automaticCastGrowsWithTheTableAndKeepsPlainVillagers() {
+    assertEquals(Map.of("WEREWOLF", 1L, "SEER", 1L, "VILLAGER", 2L), cast(4));
+    assertEquals(Map.of("WEREWOLF", 1L, "SEER", 1L, "WITCH", 1L, "VILLAGER", 3L), cast(6));
+    assertEquals(
+        Map.of("WEREWOLF", 2L, "SEER", 1L, "WITCH", 1L, "HUNTER", 1L, "CUPID", 1L, "VILLAGER", 2L),
+        cast(8));
+    assertEquals(3L, cast(10).get("VILLAGER").longValue());
+  }
+
+  @Test
+  public void theStoryOpensAtNight() {
+    var withCupid = new WerewolfGame(players(8), 5, 5, 5, new Random(1), GameRules.Werewolf.defaults());
+    assertEquals("CUPID", withCupid.phase());
+    var g = game(6, Map.of("WEREWOLF", 1, "SEER", 1));
+    assertEquals("SEER", g.phase());
+    UUID wolf = who(g, "WEREWOLF"), victim = who(g, "VILLAGER");
+    g.advance();
+    g.select(wolf, victim);
+    assertEquals("DISCUSSION", g.phase());
+    assertFalse("the first debate is about a real victim", g.alive().contains(victim));
+  }
+
+  @Test
+  public void cupidRunningOutOfTimeIsToldAndBindsNobody() {
+    var g = game(6, Map.of("WEREWOLF", 1, "CUPID", 1));
+    UUID cupid = who(g, "CUPID"), wolf = who(g, "WEREWOLF");
+    g.select(cupid, wolf);
+    g.advance();
+    assertEquals("NIGHT", g.phase());
+    var notices = g.drainNotices();
+    assertEquals(Set.of(cupid), notices.keySet());
+    assertFalse(notices.get(cupid).startsWith(WerewolfGame.LOVE_NOTICE));
+    assertFalse(g.help(wolf).contains("in love"));
+  }
+
+  @Test
+  public void wolvesWinOnlyOnceNoVillagerIsLeft() {
+    var g = game(5, Map.of("WEREWOLF", 2));
+    var villagers = g.alive().stream().filter(p -> g.role(p).equals("VILLAGER")).toList();
+    g.remove(villagers.get(0));
+    g.remove(villagers.get(1));
+    assertEquals("two wolves against one villager play on", "", g.winner());
+    g.remove(villagers.get(2));
+    assertEquals("WEREWOLVES", g.winner());
+  }
+
+  @Test
+  public void runningOutOfTimeEndsTheGameWithoutAWinner() {
+    var g = game(5, Map.of("WEREWOLF", 1));
+    g.finish();
+    assertEquals("FINISHED", g.phase());
+    g.remove(who(g, "WEREWOLF"));
+    assertEquals("", g.winner());
   }
 
   @Test
@@ -37,7 +99,7 @@ public class ExpandedGameTest {
     UUID cupid = who(g, "CUPID"), wolf = who(g, "WEREWOLF"), villager = who(g, "VILLAGER");
     g.select(cupid, wolf);
     g.select(cupid, villager);
-    assertEquals("DISCUSSION", g.phase());
+    assertEquals("NIGHT", g.phase()); // The first night goes on once the lovers are bound.
     assertTrue(g.help(wolf).contains(villager.toString()));
     assertFalse(g.help(cupid).contains(villager.toString()));
     g.remove(villager);
@@ -49,7 +111,7 @@ public class ExpandedGameTest {
   public void hunterGetsFinalShotBeforeWinnerResolution() {
     var g = game(4, Map.of("WEREWOLF", 1, "HUNTER", 1));
     UUID hunter = who(g, "HUNTER"), wolf = who(g, "WEREWOLF");
-    g.advance();
+    phase(g, "DAY_VOTE");
     for (UUID p : g.alive()) if (!p.equals(hunter)) g.select(p, hunter);
     g.advance();
     assertEquals("HUNTER_SHOT", g.phase());
@@ -63,7 +125,7 @@ public class ExpandedGameTest {
   public void hunterShotTimesOutWithoutBlockingGame() {
     var g = game(4, Map.of("WEREWOLF", 1, "HUNTER", 1));
     UUID hunter = who(g, "HUNTER");
-    g.advance();
+    phase(g, "DAY_VOTE");
     for (UUID p : g.alive()) if (!p.equals(hunter)) g.select(p, hunter);
     g.advance();
     g.advance();
@@ -80,7 +142,10 @@ public class ExpandedGameTest {
     assertTrue(g.alive().contains(victim));
     g.use(witch, "heal");
     assertThrows(IllegalArgumentException.class, () -> g.use(witch, "heal"));
-    g.select(witch, wolf);
+    assertTrue(g.select(witch, victim).contains("again to confirm"));
+    g.select(witch, wolf); // Aiming elsewhere asks for a fresh confirmation...
+    assertTrue(g.alive().contains(wolf));
+    g.select(witch, wolf); // ...and the second click on the same head pours it.
     assertThrows(IllegalArgumentException.class, () -> g.select(witch, victim));
     g.advance();
     assertTrue(g.alive().contains(victim));
@@ -92,15 +157,27 @@ public class ExpandedGameTest {
   public void guardPreventsAttackAndMustAlternate() {
     var g = game(6, Map.of("WEREWOLF", 1, "GUARD", 1));
     UUID guard = who(g, "GUARD"), wolf = who(g, "WEREWOLF"), victim = who(g, "VILLAGER");
-    phase(g, "GUARD");
+    assertEquals("GUARD", g.phase());
     g.select(guard, victim);
-    g.advance();
-    assertEquals("NIGHT", g.phase());
+    assertEquals("the guard's choice ends the turn", "NIGHT", g.phase());
     g.select(wolf, victim);
     assertTrue(g.alive().contains(victim));
     phase(g, "GUARD");
     assertThrows(IllegalArgumentException.class, () -> g.select(guard, victim));
     g.select(guard, guard);
+  }
+
+  @Test
+  public void witchIsShownTheVictimEvenWhenTheGuardSavesThem() {
+    var g = game(7, Map.of("WEREWOLF", 1, "GUARD", 1, "WITCH", 1));
+    UUID guard = who(g, "GUARD"), wolf = who(g, "WEREWOLF"), witch = who(g, "WITCH");
+    UUID victim = who(g, "VILLAGER");
+    g.select(guard, victim);
+    g.select(wolf, victim);
+    assertEquals("WITCH", g.phase());
+    assertTrue(g.abilities(witch).containsKey("heal"));
+    g.advance();
+    assertTrue(g.alive().contains(victim));
   }
 
   @Test

@@ -26,7 +26,7 @@ public class NightTurnsTest {
   }
 
   @Test
-  public void rolesWakeInOrderAndWolvesFinishOnLastVote() {
+  public void rolesWakeInOrderAndWolvesFinishWhenUnanimous() {
     var g = game(Map.of("WEREWOLF", 2, "GUARD", 1, "SEER", 1, "WITCH", 1));
     var wolves = role(g, "WEREWOLF");
     var guard = role(g, "GUARD").getFirst();
@@ -38,17 +38,16 @@ public class NightTurnsTest {
     assertTrue(g.sleeping(wolves.getFirst()));
     assertThrows(IllegalArgumentException.class, () -> g.select(seer, victim));
     g.select(guard, guard);
-    g.advance();
     assertEquals("SEER", g.phase());
     assertFalse(g.sleeping(seer));
     assertTrue(g.sleeping(guard));
     g.select(seer, victim);
-    g.advance();
     assertEquals("NIGHT", g.phase());
     g.select(wolves.get(0), victim);
     assertEquals("NIGHT", g.phase());
-    g.select(wolves.get(0), seer); // Changes remain legal until the final wolf votes.
     g.select(wolves.get(1), seer);
+    assertEquals("a split pack keeps hunting", "NIGHT", g.phase());
+    g.select(wolves.get(0), seer);
     assertEquals("WITCH", g.phase());
     assertTrue(g.sleeping(wolves.get(0)));
     assertTrue(g.sleeping(wolves.get(1)));
@@ -65,7 +64,9 @@ public class NightTurnsTest {
       if (vote) {
         g.select(wolves.get(0), villagers.get(0));
         g.select(wolves.get(1), villagers.get(1));
-      } else g.advance();
+        assertEquals("NIGHT", g.phase());
+      }
+      g.advance();
       assertEquals("DISCUSSION", g.phase());
       assertEquals(10, g.alive().size());
     }
@@ -83,7 +84,7 @@ public class NightTurnsTest {
   }
 
   @Test
-  public void skipsAbsentOrDeadRolesAndSpentWitch() {
+  public void skipsAbsentOrDeadRoles() {
     var g = game(Map.of("WEREWOLF", 1, "GUARD", 1, "SEER", 1));
     g.remove(role(g, "GUARD").getFirst());
     g.remove(role(g, "SEER").getFirst());
@@ -93,7 +94,7 @@ public class NightTurnsTest {
   }
 
   @Test
-  public void spentWitchIsSkippedOnLaterNights() {
+  public void spentWitchIsStillCalledSoHerTurnRevealsNothing() {
     var g = game(Map.of("WEREWOLF", 2, "WITCH", 1));
     var wolves = role(g, "WEREWOLF");
     var witch = role(g, "WITCH").getFirst();
@@ -103,12 +104,17 @@ public class NightTurnsTest {
     assertEquals("WITCH", g.phase());
     g.use(witch, "heal");
     g.select(witch, villagers.get(1));
+    g.select(witch, villagers.get(1));
     g.advance();
     assertTrue(g.alive().contains(villagers.get(0)));
     assertFalse(g.alive().contains(villagers.get(1)));
     to(g, "NIGHT");
     for (UUID wolf : wolves) g.select(wolf, villagers.get(2));
-    assertEquals("DISCUSSION", g.phase());
+    assertEquals("WITCH", g.phase());
+    assertTrue(g.abilities(witch).isEmpty());
+    assertThrows(IllegalArgumentException.class, () -> g.select(witch, villagers.get(3)));
+    g.advance();
+    assertFalse(g.alive().contains(villagers.get(2)));
   }
 
   @Test

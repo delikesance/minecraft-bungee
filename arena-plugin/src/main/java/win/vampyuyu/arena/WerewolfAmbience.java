@@ -132,7 +132,7 @@ final class WerewolfAmbience {
               player -> {
                 player.clearTitle();
                 news.forEach(player::sendMessage);
-                if (opening) plugin.gui.arm(player, game.role(id));
+                if (opening) plugin.gui.disarm(player);
                 var view = WerewolfPresentation.view(game, id);
                 NamedTextColor roleColor = CompassGUI.roleColor(game.role(id));
                 if (opening) {

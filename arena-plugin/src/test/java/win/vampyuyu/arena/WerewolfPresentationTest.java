@@ -51,7 +51,7 @@ public class WerewolfPresentationTest {
   public void deadHunterGetsPrivateInstructionsAndOthersSleep() {
     var g = game(Map.of("WEREWOLF", 1, "HUNTER", 1));
     UUID hunter = role(g, "HUNTER");
-    g.advance();
+    phase(g, "DAY_VOTE");
     for (UUID p : g.alive()) if (!p.equals(hunter)) g.select(p, hunter);
     g.advance();
     assertEquals("HUNTER_SHOT", g.phase());
@@ -108,6 +108,7 @@ public class WerewolfPresentationTest {
   @Test
   public void publicDayAndResultsHaveNoSecretRoleInstructions() {
     var g = game(Map.of("WEREWOLF", 1));
+    phase(g, "DISCUSSION");
     assertEquals("Day · Discussion", WerewolfPresentation.view(g, role(g, "VILLAGER")).phase());
     assertTrue(WerewolfPresentation.view(g, role(g, "WEREWOLF")).timerVisible());
     assertNull(WerewolfPresentation.awakening("DISCUSSION"));

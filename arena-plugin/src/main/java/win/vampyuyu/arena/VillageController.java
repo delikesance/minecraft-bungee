@@ -282,8 +282,7 @@ final class VillageController {
   CompletableFuture<Void> present(ArenaSession s, String previous) {
     if (!(s.game instanceof WerewolfGame game)) return CompletableFuture.completedFuture(null);
     String phase = game.phase();
-    boolean night =
-        Set.of("CUPID", "GUARD", "SEER", "NIGHT", "WITCH", "HUNTER_SHOT").contains(phase);
+    boolean night = WerewolfPresentation.secret(phase);
     List<CompletableFuture<?>> tasks = new ArrayList<>();
     for (UUID id : s.players.keySet()) {
       Player p = Bukkit.getPlayer(id);

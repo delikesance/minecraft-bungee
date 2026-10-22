@@ -247,13 +247,10 @@ public final class ArenaProtectionListener implements Listener {
     GamePreset game = s.game;
     UUID from = e.getPlayer().getUniqueId();
     boolean alive = game == null || game.alive().contains(from);
-    boolean night =
-        game != null
-            && java.util.Set.of("CUPID", "GUARD", "SEER", "NIGHT", "WITCH", "HUNTER_SHOT")
-                .contains(game.phase());
+    boolean night = game != null && WerewolfPresentation.secret(game.phase());
     if (night && alive) {
       plugin.message(
-          e.getPlayer(), "The village is asleep. Use your compass or claw for your night action.");
+          e.getPlayer(), "The village is asleep. Your menu opens when your role wakes up.");
       return;
     }
     Component message =
