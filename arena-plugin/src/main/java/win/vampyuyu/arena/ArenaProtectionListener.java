@@ -172,7 +172,7 @@ public final class ArenaProtectionListener implements Listener {
           && !command.equals("/arena leave")
           && !command.equals("/nexusarenaengine:arena leave")) {
         e.setCancelled(true);
-        plugin.message(e.getPlayer(), "Use your compass or /arena leave during a game.");
+        plugin.message(e.getPlayer(), "Use /arena to open your menu, or /arena leave, during a game.");
       }
     }
   }
@@ -247,13 +247,10 @@ public final class ArenaProtectionListener implements Listener {
     GamePreset game = s.game;
     UUID from = e.getPlayer().getUniqueId();
     boolean alive = game == null || game.alive().contains(from);
-    boolean night =
-        game != null
-            && java.util.Set.of("CUPID", "GUARD", "SEER", "NIGHT", "WITCH", "HUNTER_SHOT")
-                .contains(game.phase());
+    boolean night = game instanceof WerewolfGame wolf && wolf.night();
     if (night && alive) {
       plugin.message(
-          e.getPlayer(), "The village is asleep. Use your compass or claw for your night action.");
+          e.getPlayer(), "The village is asleep. Your menu opens when your role wakes up.");
       return;
     }
     Component message =

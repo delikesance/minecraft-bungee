@@ -26,6 +26,17 @@ public final class WerewolfGame implements GamePreset {
     FINISHED
   }
 
+  /** Opening words of the lovers' notice; the GUI dresses only these notices as a love title. */
+  static final String LOVE_NOTICE = "Cupid's arrow struck you";
+
+  /** Automatic cast: each special role joins once the table reaches this many players. */
+  private static final List<Map.Entry<Role, Integer>> UNLOCK =
+      List.of(
+          Map.entry(Role.WITCH, 6),
+          Map.entry(Role.HUNTER, 7),
+          Map.entry(Role.CUPID, 8),
+          Map.entry(Role.GUARD, 10));
+
   private final Map<UUID, Role> roles = new LinkedHashMap<>();
   private final Set<UUID> alive = new LinkedHashSet<>(),
       visions = new HashSet<>(),
@@ -35,12 +46,14 @@ public final class WerewolfGame implements GamePreset {
       lovers = new HashMap<>(),
       guards = new HashMap<>(),
       lastGuard = new HashMap<>(),
-      poisons = new HashMap<>();
+      poisons = new HashMap<>(),
+      poisonAims = new HashMap<>();
   private final Set<UUID> heals = new HashSet<>();
   private final Deque<UUID> hunters = new ArrayDeque<>();
   private final int discussion, vote, night;
   private final GameRules.Werewolf settings;
   private UUID firstLover, nightVictim;
+  private boolean victimGuarded;
   private final Map<UUID, String> notices = new HashMap<>();
   private Phase phase = Phase.DISCUSSION, resume = Phase.DISCUSSION;
   private String winner = "";
@@ -74,8 +87,9 @@ public final class WerewolfGame implements GamePreset {
       for (int i = 0; i < Math.max(1, players.size() / 4); i++) deck.add(Role.WEREWOLF);
       deck.add(Role.SEER);
       if (settings != null)
-        for (Role special : List.of(Role.CUPID, Role.HUNTER, Role.WITCH, Role.GUARD))
-          if (deck.size() < players.size()) deck.add(special);
+        for (var unlock : UNLOCK)
+          if (players.size() >= unlock.getValue() && deck.size() < players.size())
+            deck.add(unlock.getKey());
     }
     long wolves = deck.stream().filter(r -> r == Role.WEREWOLF).count();
     if (deck.size() > players.size() || wolves < 1 || wolves * 2 >= players.size())
@@ -86,7 +100,8 @@ public final class WerewolfGame implements GamePreset {
     int i = 0;
     for (UUID id : players) roles.put(id, deck.get(i++));
     alive.addAll(players);
-    if (roles.containsValue(Role.CUPID)) phase = Phase.CUPID;
+    // Like the card game, the story opens at night: Cupid first, then the usual night turns.
+    phase = roles.containsValue(Role.CUPID) ? Phase.CUPID : firstNightPhase();
   }
 
   public synchronized String phase() {
@@ -126,7 +141,8 @@ public final class WerewolfGame implements GamePreset {
   }
 
   private static String loveNotice(UUID partner) {
-    return "Cupid's arrow struck you: you are in love with "
+    return LOVE_NOTICE
+        + ": you are in love with "
         + partner
         + ". If either of you dies, both die. Only you two know it.";
   }
@@ -144,16 +160,18 @@ public final class WerewolfGame implements GamePreset {
             ? " You are in love with " + lovers.get(p) + "; if either dies, both die."
             : "";
     return (switch (roles.getOrDefault(p, Role.VILLAGER)) {
-          case CUPID -> "Opening phase: select two living players to bind as lovers.";
+          case CUPID -> "Opening night: select two living players to bind as lovers.";
           case HUNTER -> "If eliminated, choose one living player for your final shot.";
           case WITCH ->
-              "Potion phase: use Heal to save the wolf victim; click a head to poison once per"
-                  + " game.";
+              "Potion phase: while you hold the healing potion, you see the wolves' victim and can"
+                  + " save them; click a head twice to poison. Each potion works once per game.";
           case GUARD ->
               "At night, protect one player, including yourself. Never the same target twice in a"
-                  + " row.";
+                  + " row. Your choice is final.";
           case SEER -> "At night, inspect one other living player.";
-          case WEREWOLF -> "At night, open your claw and vote for a non-wolf to hunt. There is no night chat.";
+          case WEREWOLF ->
+              "At night, vote with the pack for a non-wolf. The hunt ends as soon as every wolf"
+                  + " picks the same victim. There is no night chat.";
           default -> "Discuss by day, then vote to identify the wolves.";
         })
         + bond;
@@ -165,6 +183,7 @@ public final class WerewolfGame implements GamePreset {
         && roles.get(p) == Role.WITCH
         && !healUsed.contains(p)
         && nightVictim != null
+        && alive.contains(nightVictim)
         && !heals.contains(p)) return Map.of("heal", "Use healing potion · save " + nightVictim);
     return Map.of();
   }
@@ -200,7 +219,8 @@ public final class WerewolfGame implements GamePreset {
       lovers.put(target, firstLover);
       notices.put(firstLover, loveNotice(target));
       notices.put(target, loveNotice(firstLover));
-      phase = Phase.DISCUSSION;
+      phase = firstNightPhase();
+      checkWinner(); // Binding the last two players as a mixed couple ends the story at once.
       return "The lovers are bound. Only they know their bond.";
     }
     if (phase == Phase.GUARD && role == Role.GUARD) {
@@ -208,11 +228,16 @@ public final class WerewolfGame implements GamePreset {
         throw new IllegalArgumentException(
             "You cannot protect the same player on consecutive nights");
       guards.put(voter, target);
-      return "Protection chosen. You may change it before dawn.";
+      advance();
+      return "Protection chosen: " + target + " is safe from the wolves tonight.";
     }
     if (phase == Phase.WITCH && role == Role.WITCH) {
-      if (!poisonUsed.add(voter))
+      if (poisonUsed.contains(voter))
         throw new IllegalArgumentException("Your poison potion has already been used");
+      if (!target.equals(poisonAims.put(voter, target)))
+        return "Click " + target + " again to confirm the poison. It cannot be undone.";
+      poisonAims.remove(voter);
+      poisonUsed.add(voter);
       poisons.put(voter, target);
       return "Poison potion used. Your target will die at dawn.";
     }
@@ -220,17 +245,30 @@ public final class WerewolfGame implements GamePreset {
     if (phase == Phase.SEER && role == Role.SEER) {
       if (!visions.add(voter))
         throw new IllegalArgumentException("You already used your vision tonight");
-      return "Your vision: " + target + " is " + roles.get(target) + ".";
+      String vision = "Your vision: " + target + " is " + roles.get(target) + ".";
+      advance();
+      return vision;
     }
     if (phase != Phase.DAY_VOTE && (phase != Phase.NIGHT || role != Role.WEREWOLF))
       throw new IllegalArgumentException("You cannot vote during this phase");
     if (phase == Phase.NIGHT && roles.get(target) == Role.WEREWOLF)
       throw new IllegalArgumentException("Wolves cannot target another wolf");
     ballots.put(voter, target);
-    if (phase == Phase.NIGHT
-        && alive.stream().filter(p -> roles.get(p) == Role.WEREWOLF).allMatch(ballots::containsKey))
+    if (phase == Phase.NIGHT && packAgrees()) {
       advance();
-    return "Vote recorded. You may change it until the phase ends.";
+      return "The pack agrees: " + target + " is tonight's prey.";
+    }
+    return phase == Phase.NIGHT
+        ? "Vote recorded. The hunt ends once every wolf picks the same victim."
+        : "Vote recorded. You may change it until the phase ends.";
+  }
+
+  /** Every living wolf has voted, and all for the same victim. */
+  private boolean packAgrees() {
+    List<UUID> pack = alive.stream().filter(p -> roles.get(p) == Role.WEREWOLF).toList();
+    return !pack.isEmpty()
+        && pack.stream().allMatch(ballots::containsKey)
+        && pack.stream().map(ballots::get).distinct().count() == 1;
   }
 
   /** Practice participants act through the same rules as humans, without revealing secrets. */
@@ -243,8 +281,15 @@ public final class WerewolfGame implements GamePreset {
       if (!alive.contains(bot)
           && !(phase == Phase.HUNTER_SHOT && Objects.equals(hunters.peekFirst(), bot))) continue;
       if (phase == Phase.WITCH) {
+        if (roles.get(bot) != Role.WITCH) continue;
         if (abilities(bot).containsKey("heal") && random.nextBoolean()) use(bot, "heal");
-        if (random.nextInt(4) != 0) continue;
+        List<UUID> targets = new ArrayList<>(alive);
+        targets.remove(bot);
+        if (poisonUsed.contains(bot) || targets.isEmpty() || random.nextInt(4) != 0) continue;
+        UUID target = targets.get(random.nextInt(targets.size()));
+        select(bot, target);
+        select(bot, target); // The second click confirms the poison.
+        continue;
       }
       int choices = phase == Phase.CUPID ? 2 : 1;
       for (int choice = 0; choice < choices && phase == initial; choice++) {
@@ -262,32 +307,35 @@ public final class WerewolfGame implements GamePreset {
     }
   }
 
+  /** The arena's time limit ran out: nobody wins and every menu unlocks. */
+  @Override
+  public synchronized void finish() {
+    phase = Phase.FINISHED;
+  }
+
   public synchronized void remove(UUID p) {
+    if (phase == Phase.FINISHED) return; // The result (and the winners' list) is settled.
     eliminate(p, false);
     hunters.remove(p);
-    ballots.remove(p);
-    ballots.values().removeIf(p::equals);
     guards.remove(p);
     poisons.remove(p);
+    poisonAims.remove(p);
+    if (p.equals(firstLover)) firstLover = null;
     if (phase == Phase.HUNTER_SHOT) resumeAfterHunters();
+    // A departing lover can take a hunter down with them: let them shoot now, then carry on.
+    else if (!hunters.isEmpty() && phase != Phase.FINISHED) continueWith(phase);
     else checkWinner();
     skipUnavailable();
-    if (phase == Phase.NIGHT
-        && alive.stream()
-            .filter(id -> roles.get(id) == Role.WEREWOLF)
-            .allMatch(ballots::containsKey)) advance();
+    if (phase == Phase.NIGHT && packAgrees()) advance();
   }
 
   private void skipUnavailable() {
+    if (phase == Phase.CUPID && !hasLiving(Role.CUPID)) phase = firstNightPhase();
     if (phase == Phase.GUARD && !hasLiving(Role.GUARD))
       phase = hasLiving(Role.SEER) ? Phase.SEER : Phase.NIGHT;
     if (phase == Phase.SEER && !hasLiving(Role.SEER)) phase = Phase.NIGHT;
-    if (phase == Phase.WITCH
-        && alive.stream()
-            .noneMatch(
-                p ->
-                    roles.get(p) == Role.WITCH
-                        && (!healUsed.contains(p) || !poisonUsed.contains(p)))) nightDeaths();
+    // A living witch is always called, even with empty flasks, so her turn reveals nothing.
+    if (phase == Phase.WITCH && !hasLiving(Role.WITCH)) nightDeaths();
   }
 
   private UUID majority() {
@@ -303,20 +351,25 @@ public final class WerewolfGame implements GamePreset {
 
   private void eliminate(UUID p, boolean shot) {
     if (p == null || !alive.remove(p)) return;
+    // Only the living vote, and only for the living.
+    ballots.remove(p);
+    ballots.values().removeIf(p::equals);
     if (shot && roles.get(p) == Role.HUNTER) hunters.addLast(p);
     UUID partner = lovers.get(p);
     if (partner != null) eliminate(partner, true);
   }
 
   private void nightDeaths() {
-    if (heals.isEmpty()) eliminate(nightVictim, true);
+    if (heals.isEmpty() && !victimGuarded) eliminate(nightVictim, true);
     for (UUID target : poisons.values()) eliminate(target, true);
     lastGuard.clear();
     lastGuard.putAll(guards);
     guards.clear();
     poisons.clear();
+    poisonAims.clear();
     heals.clear();
     nightVictim = null;
+    victimGuarded = false;
     continueWith(Phase.DISCUSSION);
   }
 
@@ -334,6 +387,7 @@ public final class WerewolfGame implements GamePreset {
       phase = resume;
       checkWinner();
       skipUnavailable();
+      if (phase == Phase.NIGHT && packAgrees()) advance();
     }
   }
 
@@ -342,7 +396,14 @@ public final class WerewolfGame implements GamePreset {
       case FINISHED -> {
         return;
       }
-      case CUPID -> phase = Phase.DISCUSSION;
+      case CUPID -> {
+        if (lovers.isEmpty())
+          for (UUID cupid : alive)
+            if (roles.get(cupid) == Role.CUPID)
+              notices.put(cupid, "Time ran out before you chose two lovers: nobody is in love.");
+        firstLover = null;
+        phase = firstNightPhase();
+      }
       case DISCUSSION -> phase = Phase.DAY_VOTE;
       case DAY_VOTE -> {
         eliminate(majority(), true);
@@ -353,16 +414,11 @@ public final class WerewolfGame implements GamePreset {
       case GUARD -> phase = hasLiving(Role.SEER) ? Phase.SEER : Phase.NIGHT;
       case SEER -> phase = Phase.NIGHT;
       case NIGHT -> {
+        // The witch is shown whoever the pack chose, even if the guard will save them.
         nightVictim = majority();
         ballots.clear();
-        if (guards.containsValue(nightVictim)) nightVictim = null;
-        boolean witches =
-            alive.stream()
-                .anyMatch(
-                    p ->
-                        roles.get(p) == Role.WITCH
-                            && (!healUsed.contains(p) || !poisonUsed.contains(p)));
-        if (witches) phase = Phase.WITCH;
+        victimGuarded = nightVictim != null && guards.containsValue(nightVictim);
+        if (hasLiving(Role.WITCH)) phase = Phase.WITCH;
         else nightDeaths();
       }
       case WITCH -> nightDeaths();
@@ -402,6 +458,18 @@ public final class WerewolfGame implements GamePreset {
     return Set.copyOf(result);
   }
 
+  /**
+   * True while the village sleeps. A hunter's shot belongs to the phase it interrupts: taken at
+   * dawn or during the day it happens in daylight, during the night it stays secret.
+   */
+  public synchronized boolean night() {
+    return switch (phase) {
+      case CUPID, GUARD, SEER, NIGHT, WITCH -> true;
+      case HUNTER_SHOT -> resume != Phase.DISCUSSION && resume != Phase.DAY_VOTE;
+      default -> false;
+    };
+  }
+
   public synchronized boolean sleeping(UUID p) {
     if (!alive.contains(p)) return false;
     return switch (phase) {
@@ -410,7 +478,7 @@ public final class WerewolfGame implements GamePreset {
       case SEER -> roles.get(p) != Role.SEER;
       case NIGHT -> roles.get(p) != Role.WEREWOLF;
       case WITCH -> roles.get(p) != Role.WITCH;
-      case HUNTER_SHOT -> !Objects.equals(hunters.peekFirst(), p);
+      case HUNTER_SHOT -> night() && !Objects.equals(hunters.peekFirst(), p);
       default -> false;
     };
   }
@@ -427,7 +495,7 @@ public final class WerewolfGame implements GamePreset {
   }
 
   private void checkWinner() {
-    if (!hunters.isEmpty()) return;
+    if (phase == Phase.FINISHED || !hunters.isEmpty()) return;
     if (alive.isEmpty()) {
       winner = "DRAW";
       phase = Phase.FINISHED;
@@ -447,7 +515,8 @@ public final class WerewolfGame implements GamePreset {
     if (wolves == 0) {
       winner = "VILLAGE";
       phase = Phase.FINISHED;
-    } else if (wolves >= alive.size() - wolves) {
+    } else if (wolves == alive.size()) {
+      // As in the card game, the wolves win only once every villager is dead.
       winner = "WEREWOLVES";
       phase = Phase.FINISHED;
     }

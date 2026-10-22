@@ -28,6 +28,7 @@ public class PracticeGameTest {
   public void onlySpecifiedBotsActAndDiscussionDoesNotChange() {
     var ids = List.of(new UUID(0, 1), new UUID(0, 2), new UUID(0, 3), new UUID(0, 4));
     var game = new WerewolfGame(ids, 5, 5, 5, new Random(2));
+    while (!game.phase().equals("DISCUSSION")) game.advance(); // A quiet first night.
     game.simulateTurn(Set.of(ids.get(1)), new Random(3));
     assertEquals("DISCUSSION", game.phase());
     game.advance();

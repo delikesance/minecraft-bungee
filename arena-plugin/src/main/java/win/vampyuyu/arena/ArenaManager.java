@@ -574,6 +574,8 @@ public final class ArenaManager {
   }
 
   public synchronized void phaseChanged(ArenaSession s) {
+    // Notices can come from a click, a bot or a timeout (e.g. Cupid running out of time).
+    if (plugin.gui != null) plugin.gui.deliverNotices(s);
     if (s.game == null || s.stopping || s.finishing || s.game.phase().equals(s.observedPhase))
       return;
     String previous = s.observedPhase;

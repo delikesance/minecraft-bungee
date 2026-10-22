@@ -8,9 +8,6 @@ final class WerewolfPresentation {
 
   record Cue(String title, String subtitle) {}
 
-  static boolean secret(String phase) {
-    return Set.of("CUPID", "GUARD", "SEER", "NIGHT", "WITCH", "HUNTER_SHOT").contains(phase);
-  }
 
   /** True when this player must act now: their menu opens by itself and cannot be closed. */
   static boolean menuRequired(WerewolfGame game, UUID id) {
@@ -56,19 +53,19 @@ final class WerewolfPresentation {
         : "The " + roleLabel(role) + " go" + (role.equals("WEREWOLF") ? "" : "es") + " back to sleep";
   }
 
-  static boolean dusk(boolean wasNight, String phase) {
-    return !wasNight && secret(phase);
+  static boolean dusk(boolean wasNight, boolean night) {
+    return !wasNight && night;
   }
 
-  static boolean dawn(boolean wasNight, String phase) {
-    return wasNight && phase.equals("DISCUSSION");
+  static boolean dawn(boolean wasNight, boolean night, String phase) {
+    return wasNight && !night && !phase.equals("FINISHED");
   }
 
   static View view(WerewolfGame game, UUID viewer) {
     synchronized (game) {
       String phase = game.phase();
       boolean actor = game.actors().contains(viewer);
-      if (secret(phase) && !actor)
+      if (game.night() && !actor)
         return new View("The village sleeps", "The village sleeps", false, false);
       String label =
           switch (phase) {
@@ -86,7 +83,7 @@ final class WerewolfPresentation {
           actor
               ? switch (phase) {
                 case "DISCUSSION" -> "Discuss with the village";
-                case "DAY_VOTE" -> "Choose a player with your compass";
+                case "DAY_VOTE" -> "Choose a player in your menu";
                 case "CUPID" -> "Choose two lovers";
                 case "GUARD" -> "Protect one player";
                 case "SEER" -> "Inspect one player";
@@ -102,7 +99,7 @@ final class WerewolfPresentation {
 
   static Cue awakening(String phase) {
     return switch (phase) {
-      case "CUPID" -> new Cue("Cupid, bind two hearts", "Choose two lovers with your compass");
+      case "CUPID" -> new Cue("Cupid, bind two hearts", "Choose two lovers in your menu");
       case "GUARD" -> new Cue("Guard, awaken", "Choose someone to protect");
       case "SEER" -> new Cue("Seer, awaken", "Discover one player's secret");
       case "NIGHT" -> new Cue("Wolves, awaken", "Vote for your victim in the menu");

@@ -282,8 +282,7 @@ final class VillageController {
   CompletableFuture<Void> present(ArenaSession s, String previous) {
     if (!(s.game instanceof WerewolfGame game)) return CompletableFuture.completedFuture(null);
     String phase = game.phase();
-    boolean night =
-        Set.of("CUPID", "GUARD", "SEER", "NIGHT", "WITCH", "HUNTER_SHOT").contains(phase);
+    boolean night = game.night();
     List<CompletableFuture<?>> tasks = new ArrayList<>();
     for (UUID id : s.players.keySet()) {
       Player p = Bukkit.getPlayer(id);
@@ -300,9 +299,7 @@ final class VillageController {
                 ? (phase.equals("NIGHT") && game.role(id).equals("WEREWOLF")
                     ? s.config.village().meeting()
                     : home)
-                : (phase.equals("DISCUSSION") || phase.equals("DAY_VOTE"))
-                    ? s.config.village().daypoint()
-                    : home;
+                : phase.equals("FINISHED") ? home : s.config.village().daypoint();
         if (!returned || !Objects.equals(home, target))
           move = move.thenCompose(v -> teleport(p, s, target));
       }

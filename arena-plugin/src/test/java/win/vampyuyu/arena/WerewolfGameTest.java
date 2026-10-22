@@ -23,25 +23,29 @@ public class WerewolfGameTest {
         players().stream().filter(p -> g.role(p).equals("WEREWOLF")).findFirst().orElseThrow();
     UUID villager =
         players().stream().filter(p -> g.role(p).equals("VILLAGER")).findFirst().orElseThrow();
-    g.advance();
-    g.advance();
-    g.advance(); // Seer turn ends before wolves wake.
+    assertEquals("SEER", g.phase()); // The story opens at night.
+    g.advance(); // The seer's turn ends before the wolves wake.
     g.select(wolf, villager);
     assertEquals(1, g.votes(wolf).get(villager).intValue());
     assertTrue(g.votes(villager).isEmpty());
   }
 
+  private void toDayVote(WerewolfGame g) {
+    for (int i = 0; i < 10 && !g.phase().equals("DAY_VOTE"); i++) g.advance();
+    assertEquals("DAY_VOTE", g.phase());
+  }
+
   @Test
   public void majorityEliminatesAndTieDoesNot() {
     var g = game();
-    g.advance();
+    toDayVote(g);
     g.select(players().get(0), players().get(2));
     g.select(players().get(1), players().get(2));
     g.select(players().get(3), players().get(4));
     g.advance();
     assertFalse(g.alive().contains(players().get(2)));
     var tie = game();
-    tie.advance();
+    toDayVote(tie);
     tie.select(players().get(0), players().get(1));
     tie.select(players().get(1), players().get(0));
     tie.advance();
@@ -53,8 +57,6 @@ public class WerewolfGameTest {
     var g = game();
     UUID seer = players().stream().filter(p -> g.role(p).equals("SEER")).findFirst().orElseThrow();
     UUID target = players().stream().filter(p -> !p.equals(seer)).findFirst().orElseThrow();
-    g.advance();
-    g.advance();
     assertTrue(g.select(seer, target).contains(g.role(target)));
     assertThrows(IllegalArgumentException.class, () -> g.select(seer, target));
     assertTrue(g.votes(seer).isEmpty());
@@ -63,6 +65,9 @@ public class WerewolfGameTest {
   @Test
   public void cannotVoteOutsidePhaseOrAsDeadPlayer() {
     var g = game();
+    toDayVote(g);
+    g.advance(); // Back to night with nobody voted out, then on to the discussion.
+    while (!g.phase().equals("DISCUSSION")) g.advance();
     assertThrows(
         IllegalArgumentException.class, () -> g.select(players().get(0), players().get(1)));
     g.advance();

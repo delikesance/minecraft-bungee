@@ -111,31 +111,32 @@ final class WerewolfAmbience {
       return CompletableFuture.completedFuture(null);
     String phase = game.phase(), event = s.eventId;
     long epoch = s.ambienceEpoch;
-    boolean night = WerewolfPresentation.secret(phase);
-    boolean dusk = WerewolfPresentation.dusk(s.ambienceNight, phase);
-    boolean dawn = WerewolfPresentation.dawn(s.ambienceNight, phase);
+    // A departure during start-up can skip the opening turn; tick() then presents the new one, so
+    // this call only reveals the roles and leaves the night/dawn bookkeeping untouched.
+    boolean current = phase.equals(s.observedPhase);
+    boolean night = current ? game.night() : s.ambienceNight;
+    boolean dusk = WerewolfPresentation.dusk(s.ambienceNight, night);
+    boolean dawn = WerewolfPresentation.dawn(s.ambienceNight, night, phase);
     s.ambienceNight = night;
-    List<Component> news = news(s, game, phase);
+    List<Component> news = current ? news(s, game, phase) : List.of();
     s.nextHeartbeatAt = System.currentTimeMillis() + 4000;
     boolean enabled = s.config.werewolf().ambienceEnabled();
     List<CompletableFuture<?>> tasks = new ArrayList<>();
     for (UUID id : s.players.keySet()) {
       Player p = Bukkit.getPlayer(id);
       if (p == null) continue;
-      tasks.add(
-          dispatch(
-              s,
-              p,
-              event,
-              epoch,
-              false,
-              player -> {
-                player.clearTitle();
-                news.forEach(player::sendMessage);
-                if (opening) plugin.gui.arm(player, game.role(id));
-                var view = WerewolfPresentation.view(game, id);
-                NamedTextColor roleColor = CompassGUI.roleColor(game.role(id));
-                if (opening) {
+      NamedTextColor roleColor = CompassGUI.roleColor(game.role(id));
+      if (opening)
+        tasks.add(
+            dispatch(
+                s,
+                p,
+                event,
+                epoch,
+                true,
+                player -> {
+                  player.clearTitle();
+                  plugin.gui.disarm(player);
                   player.sendMessage(Component.text("Your story begins", GOLD));
                   player.sendMessage(
                       Component.text("Your secret role: " + game.role(id), roleColor));
@@ -144,10 +145,22 @@ final class WerewolfAmbience {
                     title(
                         player,
                         "Your story begins",
-                        "Open your compass to see your secret role",
+                        "Type /arena to see your secret role",
                         GOLD);
                   }
-                }
+                }));
+      if (!current) continue;
+      tasks.add(
+          dispatch(
+              s,
+              p,
+              event,
+              epoch,
+              false,
+              player -> {
+                if (!opening) player.clearTitle(); // Keep the opening title just shown.
+                news.forEach(player::sendMessage);
+                var view = WerewolfPresentation.view(game, id);
                 if (dusk) {
                   player.sendMessage(
                       Component.text(
@@ -173,7 +186,7 @@ final class WerewolfAmbience {
                   }
                 } else if (phase.equals("DAY_VOTE")) {
                   player.sendMessage(
-                      Component.text("Choose wisely — Vote with your compass", GOLD));
+                      Component.text("Choose wisely — Vote in your menu", GOLD));
                   if (enabled) {
                     sound(player, Sound.BLOCK_NOTE_BLOCK_HAT, .2f, 1f);
                     title(player, "Choose wisely", "The village must decide", GOLD);

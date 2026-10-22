@@ -42,7 +42,7 @@ export const defaultFreeplay: FreeplayRules = {
     "Enjoy the arena. Use your compass to follow the game or leave.",
 };
 const roles = [
-  ["WEREWOLF", "Werewolf", "Hunt with the pack and reach parity.", "☾"],
+  ["WEREWOLF", "Werewolf", "Hunt with the pack until no villager is left.", "☾"],
   [
     "VILLAGER",
     "Villager",
@@ -176,9 +176,10 @@ export function ArenaRulesEditor({
             </label>
           </div>
           <p className="console-note">
-            Automatic casting scales wolves with player count and adds Seer,
-            Cupid, Hunter, Witch and Guard as space allows. Custom casting fills
-            any remaining places with villagers.
+            Automatic casting scales wolves with player count, adds a Seer, then
+            the Witch from 6 players, the Hunter from 7, Cupid from 8 and the
+            Guard from 10. Custom casting fills any remaining places with
+            villagers.
           </p>
           <div className="arena-role-grid">
             {roles.map(([id, name, description, icon]) => (
