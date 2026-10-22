@@ -73,18 +73,28 @@ public class WerewolfPresentationTest {
   }
 
   @Test
-  public void oneDuskPerNightAndDawnOnlyAtDiscussion() {
-    boolean night = false;
-    int bells = 0;
-    for (String phase :
-        List.of("DISCUSSION", "DAY_VOTE", "GUARD", "SEER", "NIGHT", "WITCH", "HUNTER_SHOT")) {
-      if (WerewolfPresentation.dusk(night, phase)) bells++;
-      assertFalse(WerewolfPresentation.dawn(night, phase));
-      night = WerewolfPresentation.secret(phase);
-    }
-    assertEquals(1, bells);
-    assertTrue(WerewolfPresentation.dawn(night, "DISCUSSION"));
-    assertFalse(WerewolfPresentation.dawn(night, "FINISHED"));
+  public void oneDuskPerNightAndOneDawnPerDay() {
+    assertTrue(WerewolfPresentation.dusk(false, true));
+    assertFalse(WerewolfPresentation.dusk(true, true));
+    assertFalse(WerewolfPresentation.dusk(false, false));
+    assertTrue(WerewolfPresentation.dawn(true, false, "DISCUSSION"));
+    assertTrue("a hunter shooting at dawn", WerewolfPresentation.dawn(true, false, "HUNTER_SHOT"));
+    assertFalse(WerewolfPresentation.dawn(true, true, "WITCH"));
+    assertFalse(WerewolfPresentation.dawn(false, false, "DAY_VOTE"));
+    assertFalse(WerewolfPresentation.dawn(true, false, "FINISHED"));
+  }
+
+  @Test
+  public void aHunterShotKeepsTheTimeOfDayItInterrupts() {
+    var g = game(Map.of("WEREWOLF", 1, "HUNTER", 1));
+    UUID hunter = role(g, "HUNTER"), wolf = role(g, "WEREWOLF");
+    assertTrue(g.night());
+    g.select(wolf, hunter); // Killed at night, the hunter shoots at dawn, in daylight.
+    assertEquals("HUNTER_SHOT", g.phase());
+    assertFalse(g.night());
+    for (UUID p : g.alive()) assertFalse(g.sleeping(p));
+    g.advance();
+    assertEquals("DISCUSSION", g.phase());
   }
 
   @Test

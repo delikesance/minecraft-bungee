@@ -111,9 +111,9 @@ final class WerewolfAmbience {
       return CompletableFuture.completedFuture(null);
     String phase = game.phase(), event = s.eventId;
     long epoch = s.ambienceEpoch;
-    boolean night = WerewolfPresentation.secret(phase);
-    boolean dusk = WerewolfPresentation.dusk(s.ambienceNight, phase);
-    boolean dawn = WerewolfPresentation.dawn(s.ambienceNight, phase);
+    boolean night = game.night();
+    boolean dusk = WerewolfPresentation.dusk(s.ambienceNight, night);
+    boolean dawn = WerewolfPresentation.dawn(s.ambienceNight, night, phase);
     s.ambienceNight = night;
     List<Component> news = news(s, game, phase);
     s.nextHeartbeatAt = System.currentTimeMillis() + 4000;

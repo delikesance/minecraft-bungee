@@ -314,6 +314,7 @@ public final class WerewolfGame implements GamePreset {
   }
 
   public synchronized void remove(UUID p) {
+    if (phase == Phase.FINISHED) return; // The result (and the winners' list) is settled.
     eliminate(p, false);
     hunters.remove(p);
     guards.remove(p);
@@ -457,6 +458,18 @@ public final class WerewolfGame implements GamePreset {
     return Set.copyOf(result);
   }
 
+  /**
+   * True while the village sleeps. A hunter's shot belongs to the phase it interrupts: taken at
+   * dawn or during the day it happens in daylight, during the night it stays secret.
+   */
+  public synchronized boolean night() {
+    return switch (phase) {
+      case CUPID, GUARD, SEER, NIGHT, WITCH -> true;
+      case HUNTER_SHOT -> resume != Phase.DISCUSSION && resume != Phase.DAY_VOTE;
+      default -> false;
+    };
+  }
+
   public synchronized boolean sleeping(UUID p) {
     if (!alive.contains(p)) return false;
     return switch (phase) {
@@ -465,7 +478,7 @@ public final class WerewolfGame implements GamePreset {
       case SEER -> roles.get(p) != Role.SEER;
       case NIGHT -> roles.get(p) != Role.WEREWOLF;
       case WITCH -> roles.get(p) != Role.WITCH;
-      case HUNTER_SHOT -> !Objects.equals(hunters.peekFirst(), p);
+      case HUNTER_SHOT -> night() && !Objects.equals(hunters.peekFirst(), p);
       default -> false;
     };
   }
