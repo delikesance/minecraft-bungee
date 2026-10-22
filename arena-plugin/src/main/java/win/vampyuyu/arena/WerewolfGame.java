@@ -183,6 +183,7 @@ public final class WerewolfGame implements GamePreset {
         && roles.get(p) == Role.WITCH
         && !healUsed.contains(p)
         && nightVictim != null
+        && alive.contains(nightVictim)
         && !heals.contains(p)) return Map.of("heal", "Use healing potion · save " + nightVictim);
     return Map.of();
   }
@@ -219,6 +220,7 @@ public final class WerewolfGame implements GamePreset {
       notices.put(firstLover, loveNotice(target));
       notices.put(target, loveNotice(firstLover));
       phase = firstNightPhase();
+      checkWinner(); // Binding the last two players as a mixed couple ends the story at once.
       return "The lovers are bound. Only they know their bond.";
     }
     if (phase == Phase.GUARD && role == Role.GUARD) {

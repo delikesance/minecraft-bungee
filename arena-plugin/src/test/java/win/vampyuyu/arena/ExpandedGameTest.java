@@ -159,6 +159,28 @@ public class ExpandedGameTest {
   }
 
   @Test
+  public void theWitchIsNotOfferedAHealForAVictimWhoIsAlreadyGone() {
+    var g = game(7, Map.of("WEREWOLF", 1, "WITCH", 1));
+    UUID wolf = who(g, "WEREWOLF"), witch = who(g, "WITCH"), victim = who(g, "VILLAGER");
+    g.select(wolf, victim);
+    assertEquals("WITCH", g.phase());
+    g.remove(victim);
+    assertTrue(g.abilities(witch).isEmpty());
+    assertThrows(IllegalArgumentException.class, () -> g.use(witch, "heal"));
+  }
+
+  @Test
+  public void bindingTheLastTwoPlayersAsAMixedCoupleEndsTheGame() {
+    var g = game(5, Map.of("WEREWOLF", 1, "CUPID", 1));
+    UUID cupid = who(g, "CUPID"), wolf = who(g, "WEREWOLF");
+    for (UUID p : Set.copyOf(g.alive())) if (!p.equals(cupid) && !p.equals(wolf)) g.remove(p);
+    assertEquals("CUPID", g.phase());
+    g.select(cupid, cupid);
+    g.select(cupid, wolf);
+    assertEquals("LOVERS", g.winner());
+  }
+
+  @Test
   public void runningOutOfTimeEndsTheGameWithoutAWinner() {
     var g = game(5, Map.of("WEREWOLF", 1));
     g.finish();
