@@ -585,6 +585,7 @@ public final class ArenaManager {
     CompletableFuture<Void> previousPresentation = s.presentation;
     s.presentation =
         previousPresentation
+            .thenCompose(v -> plugin.ambience.verdict(s, previous))
             .thenCompose(v -> plugin.village.present(s, previous))
             .thenRun(
                 () -> {

@@ -285,6 +285,63 @@ final class WerewolfAmbience {
     return CompletableFuture.allOf(tasks.toArray(CompletableFuture[]::new));
   }
 
+  /** How long the village sees its verdict in daylight before night falls. */
+  static final long VERDICT_SECONDS = 4;
+
+  /**
+   * The village's verdict, still in daylight: whoever the day vote eliminated dies in front of
+   * everyone before night falls, instead of being found missing at dawn.
+   */
+  CompletableFuture<Void> verdict(ArenaSession s, String previous) {
+    if (!previous.equals("DAY_VOTE") || !(s.game instanceof WerewolfGame game))
+      return CompletableFuture.completedFuture(null);
+    String event = s.eventId;
+    long epoch = s.ambienceEpoch;
+    List<UUID> fallen = new ArrayList<>();
+    for (UUID id : s.players.keySet())
+      if (!game.alive().contains(id) && !s.revealed.contains(id)) fallen.add(id);
+    List<Component> news = deaths(s, game); // Announced now, so dusk does not repeat them.
+    String heading =
+        fallen.isEmpty()
+            ? "Nobody is eliminated"
+            : "☠ " + String.join(", ", fallen.stream().map(s.players::get).toList());
+    String subtitle =
+        fallen.isEmpty() ? "No majority: the village spares everyone" : "The village has spoken";
+    boolean enabled = s.config.werewolf().ambienceEnabled();
+    for (UUID id : s.players.keySet()) {
+      Player p = Bukkit.getPlayer(id);
+      if (p == null) continue;
+      String role = game.role(id);
+      dispatch(
+          s,
+          p,
+          event,
+          epoch,
+          true,
+          player -> {
+            player.sendMessage(separator("Verdict", WerewolfPresentation.VOTE));
+            news.forEach(player::sendMessage);
+            if (news.isEmpty()) player.sendMessage(Component.text(subtitle + ".", INK_MUTED));
+            if (!enabled) return;
+            if (fallen.contains(id)) {
+              title(
+                  player,
+                  "☠ You died",
+                  "The village voted you out: you were "
+                      + WerewolfMenus.article(role)
+                      + WerewolfPresentation.roleName(role),
+                  TextColor.color(WerewolfPresentation.WEREWOLF));
+              sound(player, Sound.ENTITY_WITHER_SPAWN, .15f, 1.4f);
+            } else {
+              title(player, heading, subtitle, VOTE);
+              sound(player, Sound.BLOCK_BELL_RESONATE, .3f, fallen.isEmpty() ? 1.2f : .8f);
+            }
+          });
+    }
+    return CompletableFuture.runAsync(
+        () -> {}, CompletableFuture.delayedExecutor(VERDICT_SECONDS, TimeUnit.SECONDS));
+  }
+
   /** Public story beats: who just died (with their role) and which role wakes or sleeps. */
   private List<Component> news(ArenaSession s, WerewolfGame game, String phase) {
     List<Component> lines = new ArrayList<>(deaths(s, game));

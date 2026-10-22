@@ -91,6 +91,7 @@ final class WerewolfHud {
       p.setScoreboard(board);
     }
     if (p.getScoreboard() != board) p.setScoreboard(board);
+    voteTags(board, s, game, p.getUniqueId());
     Objective objective = board.getObjective("werewolf");
     if (objective == null) return;
     UUID id = p.getUniqueId();
@@ -155,6 +156,33 @@ final class WerewolfHud {
         score.setScore(lines.size() - i);
         score.customName(lines.get(i));
       } else board.resetScores(entry);
+    }
+  }
+
+  /**
+   * During the day vote, everyone's ballots hang under their name tag ("✖ 3 votes"), the same
+   * public totals the vote menu shows. Outside the vote the line disappears.
+   */
+  private static void voteTags(Scoreboard board, ArenaSession s, WerewolfGame game, UUID viewer) {
+    Objective tags = board.getObjective("votes");
+    if (tags == null) tags = board.registerNewObjective("votes", Criteria.DUMMY, Component.empty());
+    if (!game.phase().equals("DAY_VOTE")) {
+      if (tags.getDisplaySlot() != null) tags.setDisplaySlot(null);
+      return;
+    }
+    if (tags.getDisplaySlot() != DisplaySlot.BELOW_NAME) tags.setDisplaySlot(DisplaySlot.BELOW_NAME);
+    Map<UUID, Integer> totals = game.votes(viewer);
+    for (var entry : s.players.entrySet()) {
+      int votes = totals.getOrDefault(entry.getKey(), 0);
+      Score score = tags.getScore(entry.getValue());
+      score.setScore(votes);
+      score.numberFormat(
+          votes == 0
+              ? NumberFormat.blank()
+              : NumberFormat.fixed(
+                  Component.text(
+                      "✖ " + votes + (votes == 1 ? " vote" : " votes"),
+                      TextColor.color(WerewolfPresentation.VOTE))));
     }
   }
 
