@@ -14,6 +14,13 @@ public final class CompassMenuHolder implements InventoryHolder {
   String phase = "";
   final Map<Integer, UUID> targets = new HashMap<>();
   final Map<Integer, String> abilities = new HashMap<>();
+
+  /** Role menu this window was opened as (its painted title), or null for the plain compass. */
+  WerewolfMenus.Kind kind;
+
+  /** Role-menu actions by raw slot: select:/aim:<uuid>, use:<ability> or leave. */
+  final Map<Integer, String> clicks = new HashMap<>();
+
   private final Inventory inventory;
 
   CompassMenuHolder(UUID viewer, String arenaId, boolean skinned, Component title) {

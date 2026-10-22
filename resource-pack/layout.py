@@ -20,7 +20,23 @@ BACKGROUNDS = {
     "menu_compass": (0xE600, 222, 6),
     "menu_profile": (0xE700, 222, 6),
     "menu_alembic": (0xE800, 222, 6),   # witch potion phase
+    # Werewolf role menus (design guide "Les menus de rôle"); plugin: WerewolfMenus.Kind
+    "menu_vote":    (0xE900, 222, 6),
+    "menu_hunt":    (0xEA00, 222, 6),
+    "menu_vision":  (0xEB00, 222, 6),
+    "menu_potions": (0xEC00, 222, 6),
+    "menu_guard":   (0xED00, 222, 6),
+    "menu_lovers":  (0xEE00, 222, 6),
+    "menu_shot":    (0xEF00, 222, 6),
 }
+
+# Role cards drawn as glyphs of the vampyuyu:hud font (plugin: WerewolfHud.glyph): the back and
+# the seven roles from 0xE000, their grey "dead" versions 0x10 further.
+CARDS = ["back", "villager", "werewolf", "seer", "cupid", "hunter", "witch", "guard"]
+CARD_BASE = 0xE000
+CARD_DEAD = 0x10
+CARD_HEIGHT = 32         # GUI px
+CARD_ASCENT = 30         # the card hangs above the sidebar title line
 
 TILE_W = GUI_W // COLS   # 44 GUI px
 SHIFT_BACK = 0xE000      # -8: from the title origin to the window's left edge

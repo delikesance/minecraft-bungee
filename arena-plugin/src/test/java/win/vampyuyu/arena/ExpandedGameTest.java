@@ -105,7 +105,9 @@ public class ExpandedGameTest {
     String night = g.phase();
     g.remove(villager);
     assertEquals("HUNTER_SHOT", g.phase());
-    g.select(hunter, g.alive().stream().filter(p -> g.role(p).equals("WEREWOLF")).findFirst().orElseThrow());
+    g.select(
+        hunter,
+        g.alive().stream().filter(p -> g.role(p).equals("WEREWOLF")).findFirst().orElseThrow());
     assertEquals(night, g.phase());
   }
 
@@ -165,7 +167,7 @@ public class ExpandedGameTest {
     g.select(wolf, victim);
     assertEquals("WITCH", g.phase());
     g.remove(victim);
-    assertTrue(g.abilities(witch).isEmpty());
+    assertFalse(g.abilities(witch).containsKey("heal"));
     assertThrows(IllegalArgumentException.class, () -> g.use(witch, "heal"));
   }
 
@@ -238,10 +240,14 @@ public class ExpandedGameTest {
     assertTrue(g.alive().contains(victim));
     g.use(witch, "heal");
     assertThrows(IllegalArgumentException.class, () -> g.use(witch, "heal"));
-    assertTrue(g.select(witch, victim).contains("again to confirm"));
-    g.select(witch, wolf); // Aiming elsewhere asks for a fresh confirmation...
+    assertFalse(
+        "nothing to poison before a head is picked", g.abilities(witch).containsKey("poison"));
+    g.aim(witch, victim);
+    g.aim(witch, wolf); // A new pick replaces the old one...
+    assertEquals(List.of(wolf), g.aims(witch));
     assertTrue(g.alive().contains(wolf));
-    g.select(witch, wolf); // ...and the second click on the same head pours it.
+    g.use(witch, "poison"); // ...and DEATH pours it.
+    assertThrows(IllegalArgumentException.class, () -> g.aim(witch, victim));
     assertThrows(IllegalArgumentException.class, () -> g.select(witch, victim));
     g.advance();
     assertTrue(g.alive().contains(victim));

@@ -104,14 +104,13 @@ public class NightTurnsTest {
     assertEquals("WITCH", g.phase());
     g.use(witch, "heal");
     g.select(witch, villagers.get(1));
-    g.select(witch, villagers.get(1));
     g.advance();
     assertTrue(g.alive().contains(villagers.get(0)));
     assertFalse(g.alive().contains(villagers.get(1)));
     to(g, "NIGHT");
     for (UUID wolf : wolves) g.select(wolf, villagers.get(2));
     assertEquals("WITCH", g.phase());
-    assertTrue(g.abilities(witch).isEmpty());
+    assertEquals(Set.of("sleep"), g.abilities(witch).keySet());
     assertThrows(IllegalArgumentException.class, () -> g.select(witch, villagers.get(3)));
     g.advance();
     assertFalse(g.alive().contains(villagers.get(2)));

@@ -37,7 +37,7 @@ public class WerewolfPresentationTest {
         assertEquals(g.actors().contains(viewer), view.actor());
         if (!view.actor()) {
           assertEquals("The village sleeps", view.phase());
-          assertEquals("The village sleeps", view.instruction());
+          assertEquals("Zzz… You sleep until dawn", view.instruction());
           assertFalse(view.timerVisible());
         } else {
           assertTrue(view.timerVisible());

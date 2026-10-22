@@ -15,6 +15,14 @@ public class CompassSlotsTest {
   }
 
   @Test
+  public void roleMenuHotbarHoldsCardTimerAndLockInSlotsOneFiveAndNine() {
+    assertEquals(0, CompassGUI.inventoryIndex(WerewolfMenus.CARD));
+    assertEquals(4, CompassGUI.inventoryIndex(WerewolfMenus.TIMER));
+    assertEquals(8, CompassGUI.inventoryIndex(WerewolfMenus.LOCK));
+    assertEquals("middle inventory row", 19, CompassGUI.inventoryIndex(WerewolfMenus.box(1)));
+  }
+
+  @Test
   public void menuSlotsNeverTouchTheClawSlot() {
     for (int raw : new int[] {66, 67, 68, 81, 83, 84, 85, 88})
       org.junit.Assert.assertNotEquals(8, CompassGUI.inventoryIndex(raw));

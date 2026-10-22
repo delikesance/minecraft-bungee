@@ -18,6 +18,10 @@ public final class ArenaSession {
   volatile boolean resultQueued, finishing, practice;
   volatile String eventId;
   volatile long ambienceEpoch, nextHeartbeatAt;
+
+  /** The role cards are dealt face down and turned over at this time. */
+  volatile long cardsTurnAt;
+
   volatile boolean ambienceNight, ambienceFinale;
   volatile String ambiencePhase = "";
   final Set<UUID> revealed = ConcurrentHashMap.newKeySet();
