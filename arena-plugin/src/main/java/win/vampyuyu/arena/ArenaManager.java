@@ -582,10 +582,12 @@ public final class ArenaManager {
     s.ambienceEpoch++;
     s.observedPhase = s.game.phase();
     s.phaseEndsAt = System.currentTimeMillis() + phaseMillis(s);
+    // Taken now: by the time the presentation reaches it, the game may have moved on.
+    WerewolfGame.Verdict verdict = s.game instanceof WerewolfGame game ? game.takeVerdict() : null;
     CompletableFuture<Void> previousPresentation = s.presentation;
     s.presentation =
         previousPresentation
-            .thenCompose(v -> plugin.ambience.verdict(s, previous))
+            .thenCompose(v -> plugin.ambience.verdict(s, verdict))
             .thenCompose(v -> plugin.village.present(s, previous))
             .thenRun(
                 () -> {

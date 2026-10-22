@@ -292,26 +292,30 @@ final class WerewolfAmbience {
    * The village's verdict, still in daylight: whoever the day vote eliminated dies in front of
    * everyone before night falls, instead of being found missing at dawn.
    */
-  CompletableFuture<Void> verdict(ArenaSession s, String previous) {
-    if (!previous.equals("DAY_VOTE") || !(s.game instanceof WerewolfGame game))
+  CompletableFuture<Void> verdict(ArenaSession s, WerewolfGame.Verdict verdict) {
+    if (verdict == null || !(s.game instanceof WerewolfGame game))
       return CompletableFuture.completedFuture(null);
     String event = s.eventId;
     long epoch = s.ambienceEpoch;
+    UUID lynched = verdict.lynched();
     List<UUID> fallen = new ArrayList<>();
     for (UUID id : s.players.keySet())
       if (!game.alive().contains(id) && !s.revealed.contains(id)) fallen.add(id);
     List<Component> news = deaths(s, game); // Announced now, so dusk does not repeat them.
-    String heading =
-        fallen.isEmpty()
-            ? "Nobody is eliminated"
-            : "☠ " + String.join(", ", fallen.stream().map(s.players::get).toList());
+    String heading = lynched == null ? "Nobody is eliminated" : "☠ " + s.players.get(lynched);
     String subtitle =
-        fallen.isEmpty() ? "No majority: the village spares everyone" : "The village has spoken";
+        lynched == null ? "No majority: the village spares everyone" : "The village has spoken";
     boolean enabled = s.config.werewolf().ambienceEnabled();
     for (UUID id : s.players.keySet()) {
       Player p = Bukkit.getPlayer(id);
       if (p == null) continue;
       String role = game.role(id);
+      String cause =
+          id.equals(lynched)
+              ? "The village voted you out"
+              : lynched != null && lynched.equals(game.partner(id))
+                  ? "You died of grief"
+                  : "You fell";
       dispatch(
           s,
           p,
@@ -327,14 +331,15 @@ final class WerewolfAmbience {
               title(
                   player,
                   "☠ You died",
-                  "The village voted you out: you were "
+                  cause
+                      + ": you were "
                       + WerewolfMenus.article(role)
                       + WerewolfPresentation.roleName(role),
                   TextColor.color(WerewolfPresentation.WEREWOLF));
               sound(player, Sound.ENTITY_WITHER_SPAWN, .15f, 1.4f);
             } else {
               title(player, heading, subtitle, VOTE);
-              sound(player, Sound.BLOCK_BELL_RESONATE, .3f, fallen.isEmpty() ? 1.2f : .8f);
+              sound(player, Sound.BLOCK_BELL_RESONATE, .3f, lynched == null ? 1.2f : .8f);
             }
           });
     }

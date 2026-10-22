@@ -64,6 +64,8 @@ public final class WerewolfGame implements GamePreset {
   private final int discussion, vote, night;
   private final GameRules.Werewolf settings;
   private UUID firstLover, nightVictim;
+  /** The last day vote's outcome, until the presentation reads it. */
+  private Verdict verdict;
   private boolean victimGuarded;
   private final Map<UUID, String> notices = new HashMap<>();
   private Phase phase = Phase.DISCUSSION, resume = Phase.DISCUSSION;
@@ -541,7 +543,8 @@ public final class WerewolfGame implements GamePreset {
       }
       case DISCUSSION -> phase = Phase.DAY_VOTE;
       case DAY_VOTE -> {
-        eliminate(majority(), true);
+        verdict = new Verdict(majority());
+        eliminate(verdict.lynched(), true);
         ballots.clear();
         abstained.clear();
         visions.clear();
@@ -649,6 +652,19 @@ public final class WerewolfGame implements GamePreset {
   /** Whom this guard protected last night, who cannot be protected again tonight. */
   public synchronized UUID lastProtected(UUID guard) {
     return lastGuard.get(guard);
+  }
+
+  /** A counted day vote: whom the village eliminated, or null when no one had a majority. */
+  public record Verdict(UUID lynched) {}
+
+  /**
+   * The day vote counted since the last call, or null when the day vote ended some other way (the
+   * time limit, a departure). Read once, so the village hears each verdict a single time.
+   */
+  public synchronized Verdict takeVerdict() {
+    Verdict taken = verdict;
+    verdict = null;
+    return taken;
   }
 
   /** This player's lover, known only to the two of them. */

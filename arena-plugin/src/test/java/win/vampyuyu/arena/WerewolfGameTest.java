@@ -42,14 +42,18 @@ public class WerewolfGameTest {
     g.select(players().get(0), players().get(2));
     g.select(players().get(1), players().get(2));
     g.select(players().get(3), players().get(4));
+    assertNull(g.takeVerdict()); // Nothing counted yet.
     g.advance();
     assertFalse(g.alive().contains(players().get(2)));
+    assertEquals(players().get(2), g.takeVerdict().lynched());
+    assertNull(g.takeVerdict()); // Each verdict is heard once.
     var tie = game();
     toDayVote(tie);
     tie.select(players().get(0), players().get(1));
     tie.select(players().get(1), players().get(0));
     tie.advance();
     assertEquals(8, tie.alive().size());
+    assertNull(tie.takeVerdict().lynched()); // Counted, but nobody had a majority.
   }
 
   @Test
