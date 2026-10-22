@@ -110,6 +110,40 @@ public class ExpandedGameTest {
   }
 
   @Test
+  public void aWolfWhoDiesMidHuntNoLongerVotes() {
+    var g = game(7, Map.of("WEREWOLF", 2, "CUPID", 1));
+    UUID cupid = who(g, "CUPID");
+    var wolves = g.alive().stream().filter(p -> g.role(p).equals("WEREWOLF")).sorted().toList();
+    var villagers = g.alive().stream().filter(p -> g.role(p).equals("VILLAGER")).sorted().toList();
+    g.select(cupid, wolves.get(0));
+    g.select(cupid, villagers.get(0));
+    assertEquals("NIGHT", g.phase());
+    g.select(wolves.get(0), villagers.get(1));
+    g.select(wolves.get(1), villagers.get(2));
+    g.remove(villagers.get(0)); // Their lover, the first wolf, dies of grief.
+    assertEquals("the living pack agrees", "DISCUSSION", g.phase());
+    assertTrue(g.alive().contains(villagers.get(1)));
+    assertFalse(g.alive().contains(villagers.get(2)));
+  }
+
+  @Test
+  public void aHuntResumedAfterAShotEndsWhenTheLivingPackAgrees() {
+    var g = game(8, Map.of("WEREWOLF", 2, "CUPID", 1, "HUNTER", 1));
+    UUID cupid = who(g, "CUPID"), hunter = who(g, "HUNTER");
+    var wolves = g.alive().stream().filter(p -> g.role(p).equals("WEREWOLF")).sorted().toList();
+    var villagers = g.alive().stream().filter(p -> g.role(p).equals("VILLAGER")).sorted().toList();
+    g.select(cupid, hunter);
+    g.select(cupid, villagers.get(0));
+    g.select(wolves.get(0), villagers.get(1));
+    g.select(wolves.get(1), villagers.get(2));
+    g.remove(villagers.get(0));
+    g.select(hunter, wolves.get(0));
+    assertEquals("DISCUSSION", g.phase());
+    assertFalse(g.alive().contains(villagers.get(2)));
+    assertTrue(g.alive().contains(villagers.get(1)));
+  }
+
+  @Test
   public void runningOutOfTimeEndsTheGameWithoutAWinner() {
     var g = game(5, Map.of("WEREWOLF", 1));
     g.finish();

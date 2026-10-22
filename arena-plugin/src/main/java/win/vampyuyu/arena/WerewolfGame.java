@@ -350,6 +350,7 @@ public final class WerewolfGame implements GamePreset {
 
   private void eliminate(UUID p, boolean shot) {
     if (p == null || !alive.remove(p)) return;
+    ballots.remove(p); // Only the living decide a vote.
     if (shot && roles.get(p) == Role.HUNTER) hunters.addLast(p);
     UUID partner = lovers.get(p);
     if (partner != null) eliminate(partner, true);
@@ -383,6 +384,7 @@ public final class WerewolfGame implements GamePreset {
       phase = resume;
       checkWinner();
       skipUnavailable();
+      if (phase == Phase.NIGHT && packAgrees()) advance();
     }
   }
 
