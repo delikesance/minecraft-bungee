@@ -54,13 +54,19 @@ final class CommunityFeatures implements Listener {
   }
 
   private MenuPack pack;
+  private final MenuVault vault;
+
+  private void show(Player p, Menu m) {
+    vault.show(p, m.inventory, m.lower);
+  }
 
   /** Painted menu when the viewer loaded the resource pack, glass-pane chest otherwise. */
-  private final class Menu implements InventoryHolder {
+  private final class Menu implements MenuVault.Menu {
     final Inventory inventory;
     final UUID viewer;
     final boolean skinned;
     final Map<Integer, Action> actions = new HashMap<>();
+    final Map<Integer, ItemStack> lower = new HashMap<>();
 
     Menu(Player p, Kind kind, String title) {
       viewer = p.getUniqueId();
@@ -81,6 +87,11 @@ final class CommunityFeatures implements Listener {
       return inventory;
     }
 
+    /** Navigation lives in the hotbar row (0-8), painted as part of the window. */
+    int hot(int i) {
+      return MenuVault.hotbar(inventory.getSize(), i);
+    }
+
     void put(int slot, Material material, String title, Action action, String... lore) {
       place(slot, material, null, title, action, lore);
     }
@@ -94,7 +105,8 @@ final class CommunityFeatures implements Listener {
       ItemStack stack = item(material, title, lore);
       if (skinned)
         MenuPack.icon(stack, icon != null ? icon : MenuPack.iconFor(material, title), false);
-      inventory.setItem(slot, stack);
+      if (slot >= inventory.getSize()) lower.put(slot, stack);
+      else inventory.setItem(slot, stack);
       if (action != null) actions.put(slot, action);
     }
   }
@@ -111,9 +123,11 @@ final class CommunityFeatures implements Listener {
     return item;
   }
 
-  CommunityFeatures(JavaPlugin plugin, String server, String bridge, String token, MenuPack pack)
+  CommunityFeatures(
+      JavaPlugin plugin, String server, String bridge, String token, MenuPack pack, MenuVault vault)
       throws Exception {
     this.plugin = plugin;
+    this.vault = vault;
     this.pack = pack;
     this.server = server;
     this.bridge = bridge;
@@ -319,9 +333,9 @@ final class CommunityFeatures implements Listener {
           "Owner: " + w.ownerName(),
           "Click to visit or manage");
     }
-    if (page > 0) m.put(45, Material.ARROW, "Previous", () -> listing(p, page - 1));
+    if (page > 0) m.put(m.hot(6), Material.ARROW, "Previous", () -> listing(p, page - 1));
     if (list.size() > (page + 1) * 36)
-      m.put(53, Material.ARROW, "Next", () -> listing(p, page + 1));
+      m.put(m.hot(8), Material.ARROW, "Next", () -> listing(p, page + 1));
     m.area(
         new int[] {48, 49, 50},
         Material.EMERALD,
@@ -331,7 +345,7 @@ final class CommunityFeatures implements Listener {
           Location origin = p.getLocation().clone();
           prompt(p, "Warp name:", (ActionText) t -> create(p, t, origin));
         });
-    p.openInventory(m.inventory);
+    show(p, m);
   }
 
   private void details(Player p, String name, int page) {
@@ -385,11 +399,11 @@ final class CommunityFeatures implements Listener {
                 "back",
                 "Cancel",
                 () -> details(p, name, page));
-            p.openInventory(confirm.inventory);
+            show(p, confirm);
           });
     }
-    m.put(18, Material.ARROW, "Back", () -> listing(p, page));
-    p.openInventory(m.inventory);
+    m.put(m.hot(0), Material.ARROW, "Back", () -> listing(p, page));
+    show(p, m);
   }
 
   private void teleport(Player p, WarpStore.Warp w) {
@@ -512,10 +526,10 @@ final class CommunityFeatures implements Listener {
                           null,
                           "Global balance · Event history");
                       if (page > 0)
-                        m.put(45, Material.ARROW, "Previous", () -> profile(p, page - 1));
+                        m.put(m.hot(6), Material.ARROW, "Previous", () -> profile(p, page - 1));
                       if (data.get("more").getAsBoolean())
-                        m.put(53, Material.ARROW, "Next", () -> profile(p, page + 1));
-                      p.openInventory(m.inventory);
+                        m.put(m.hot(8), Material.ARROW, "Next", () -> profile(p, page + 1));
+                      show(p, m);
                     }));
   }
 

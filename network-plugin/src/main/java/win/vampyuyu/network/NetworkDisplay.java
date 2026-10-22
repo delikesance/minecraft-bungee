@@ -15,6 +15,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Set;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -56,6 +57,7 @@ public final class NetworkDisplay extends JavaPlugin implements Listener {
     private volatile Map<String, List<String>> commandRoles = Map.of();
     private volatile List<Identity> operators = List.of();
     private RoleAccess access;
+    private MenuVault vault;
     private ManagementApi management;
     private volatile long lastPolicySync;
     private String server;
@@ -68,6 +70,12 @@ public final class NetworkDisplay extends JavaPlugin implements Listener {
     private record Identity(String uuid, String name, long lastSeen, String gamemode) {}
     private record Request(String server, List<Identity> players, List<Identity> operators) {}
     private record Response(List<Role> roles, Map<String, String> assignments, int online, Map<String, List<String>> commands) {}
+
+    @Override
+    public void onLoad() {
+        // Runs before any world is loaded, so the datapack is picked up on the next start.
+        if ("creative".equals(System.getenv("SERVER_ID"))) HeightPack.install(this);
+    }
 
     @Override
     public void onEnable() {
@@ -90,13 +98,14 @@ public final class NetworkDisplay extends JavaPlugin implements Listener {
         MenuPack pack = MenuPack.load(this);
         if (pack != null) getServer().getPluginManager().registerEvents(pack, this);
         new WorldSelector(this, pack);
-        try { new CommunityFeatures(this, server, bridge, token, pack); }
+        vault = new MenuVault(this);
+        try { new CommunityFeatures(this, server, bridge, token, pack, vault); }
         catch (Exception e) {
             getLogger().log(java.util.logging.Level.SEVERE, "Community features failed to load", e);
             getServer().getPluginManager().disablePlugin(this);
             return;
         }
-        access = new RoleAccess(this);
+        access = new RoleAccess(this, server.equals("creative") ? RoleAccess.CREATIVE_BUILDER : Set.of());
         try { management = new ManagementApi(this, token); }
         catch (IOException exception) {
             getLogger().severe("Private management listener could not start; disabling plugin");
@@ -252,6 +261,7 @@ public final class NetworkDisplay extends JavaPlugin implements Listener {
     @Override
     public void onDisable() {
         active = false;
+        if (vault != null) vault.giveAll();
         worker.shutdownNow();
         if (access != null) access.close();
         if (management != null) management.close();
