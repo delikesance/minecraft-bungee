@@ -144,7 +144,7 @@ final class WerewolfAmbience {
                     title(
                         player,
                         "Your story begins",
-                        "Open your compass to see your secret role",
+                        "Type /arena to see your secret role",
                         GOLD);
                   }
                 }
@@ -173,7 +173,7 @@ final class WerewolfAmbience {
                   }
                 } else if (phase.equals("DAY_VOTE")) {
                   player.sendMessage(
-                      Component.text("Choose wisely — Vote with your compass", GOLD));
+                      Component.text("Choose wisely — Vote in your menu", GOLD));
                   if (enabled) {
                     sound(player, Sound.BLOCK_NOTE_BLOCK_HAT, .2f, 1f);
                     title(player, "Choose wisely", "The village must decide", GOLD);

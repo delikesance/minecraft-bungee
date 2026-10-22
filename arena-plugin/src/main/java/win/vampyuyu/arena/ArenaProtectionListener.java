@@ -172,7 +172,7 @@ public final class ArenaProtectionListener implements Listener {
           && !command.equals("/arena leave")
           && !command.equals("/nexusarenaengine:arena leave")) {
         e.setCancelled(true);
-        plugin.message(e.getPlayer(), "Use your compass or /arena leave during a game.");
+        plugin.message(e.getPlayer(), "Use /arena to open your menu, or /arena leave, during a game.");
       }
     }
   }

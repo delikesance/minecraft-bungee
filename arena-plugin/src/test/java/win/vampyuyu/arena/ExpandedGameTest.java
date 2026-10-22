@@ -85,6 +85,31 @@ public class ExpandedGameTest {
   }
 
   @Test
+  public void aLoverWhoLeavesBeforeTheSecondArrowIsNotBound() {
+    var g = game(6, Map.of("WEREWOLF", 1, "CUPID", 1));
+    UUID cupid = who(g, "CUPID"), wolf = who(g, "WEREWOLF");
+    var villagers = g.alive().stream().filter(p -> g.role(p).equals("VILLAGER")).toList();
+    g.select(cupid, villagers.get(0));
+    g.remove(villagers.get(0));
+    assertTrue(g.select(cupid, villagers.get(1)).startsWith("First lover"));
+    g.select(cupid, wolf);
+    assertTrue(g.help(wolf).contains(villagers.get(1).toString()));
+  }
+
+  @Test
+  public void aHunterDraggedDownByADepartingLoverShootsAtOnce() {
+    var g = game(6, Map.of("WEREWOLF", 2, "CUPID", 1, "HUNTER", 1));
+    UUID cupid = who(g, "CUPID"), hunter = who(g, "HUNTER"), villager = who(g, "VILLAGER");
+    g.select(cupid, hunter);
+    g.select(cupid, villager);
+    String night = g.phase();
+    g.remove(villager);
+    assertEquals("HUNTER_SHOT", g.phase());
+    g.select(hunter, g.alive().stream().filter(p -> g.role(p).equals("WEREWOLF")).findFirst().orElseThrow());
+    assertEquals(night, g.phase());
+  }
+
+  @Test
   public void runningOutOfTimeEndsTheGameWithoutAWinner() {
     var g = game(5, Map.of("WEREWOLF", 1));
     g.finish();

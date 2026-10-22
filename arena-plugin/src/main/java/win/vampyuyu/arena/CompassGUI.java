@@ -203,7 +203,7 @@ public final class CompassGUI implements Listener {
             target.showTitle(
                 net.kyori.adventure.title.Title.title(
                     text("♥ In love", NamedTextColor.LIGHT_PURPLE),
-                    text("Check your compass for your partner", NamedTextColor.GRAY)));
+                    text("Check your menu for your partner", NamedTextColor.GRAY)));
             target.playSound(target.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, .5f, 1.6f);
             return null;
           });

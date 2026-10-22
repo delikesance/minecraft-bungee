@@ -86,7 +86,7 @@ final class WerewolfPresentation {
           actor
               ? switch (phase) {
                 case "DISCUSSION" -> "Discuss with the village";
-                case "DAY_VOTE" -> "Choose a player with your compass";
+                case "DAY_VOTE" -> "Choose a player in your menu";
                 case "CUPID" -> "Choose two lovers";
                 case "GUARD" -> "Protect one player";
                 case "SEER" -> "Inspect one player";
@@ -102,7 +102,7 @@ final class WerewolfPresentation {
 
   static Cue awakening(String phase) {
     return switch (phase) {
-      case "CUPID" -> new Cue("Cupid, bind two hearts", "Choose two lovers with your compass");
+      case "CUPID" -> new Cue("Cupid, bind two hearts", "Choose two lovers in your menu");
       case "GUARD" -> new Cue("Guard, awaken", "Choose someone to protect");
       case "SEER" -> new Cue("Seer, awaken", "Discover one player's secret");
       case "NIGHT" -> new Cue("Wolves, awaken", "Vote for your victim in the menu");

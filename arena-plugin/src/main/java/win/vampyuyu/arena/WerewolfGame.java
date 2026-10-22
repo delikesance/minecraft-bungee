@@ -319,7 +319,10 @@ public final class WerewolfGame implements GamePreset {
     guards.remove(p);
     poisons.remove(p);
     poisonAims.remove(p);
+    if (p.equals(firstLover)) firstLover = null;
     if (phase == Phase.HUNTER_SHOT) resumeAfterHunters();
+    // A departing lover can take a hunter down with them: let them shoot now, then carry on.
+    else if (!hunters.isEmpty() && phase != Phase.FINISHED) continueWith(phase);
     else checkWinner();
     skipUnavailable();
     if (phase == Phase.NIGHT && packAgrees()) advance();
