@@ -76,6 +76,17 @@ final class WerewolfAmbience {
                 Duration.ofMillis(250), Duration.ofMillis(1250), Duration.ofMillis(500))));
   }
 
+  /** The turn's instruction stays on screen for the whole turn. */
+  private void instruct(
+      Player p, String heading, String subtitle, NamedTextColor color, long stayMillis) {
+    p.showTitle(
+        Title.title(
+            Component.text(heading, color),
+            Component.text(subtitle, NamedTextColor.WHITE),
+            Title.Times.times(
+                Duration.ofMillis(250), Duration.ofMillis(stayMillis), Duration.ofMillis(500))));
+  }
+
   private void heart(ArenaSession s, Player p, String event, long epoch) {
     if (!(s.game instanceof WerewolfGame game)
         || !game.phase().equals("NIGHT")
@@ -104,6 +115,7 @@ final class WerewolfAmbience {
     boolean dusk = WerewolfPresentation.dusk(s.ambienceNight, phase);
     boolean dawn = WerewolfPresentation.dawn(s.ambienceNight, phase);
     s.ambienceNight = night;
+    List<Component> news = news(s, game, phase);
     s.nextHeartbeatAt = System.currentTimeMillis() + 4000;
     boolean enabled = s.config.werewolf().ambienceEnabled();
     List<CompletableFuture<?>> tasks = new ArrayList<>();
@@ -118,7 +130,9 @@ final class WerewolfAmbience {
               epoch,
               false,
               player -> {
-                if (enabled) player.clearTitle();
+                player.clearTitle();
+                news.forEach(player::sendMessage);
+                if (opening) plugin.gui.arm(player, game.role(id));
                 var view = WerewolfPresentation.view(game, id);
                 NamedTextColor roleColor = CompassGUI.roleColor(game.role(id));
                 if (opening) {
@@ -169,11 +183,14 @@ final class WerewolfAmbience {
                 if (view.actor() && awakening != null) {
                   player.sendMessage(
                       Component.text(awakening.title() + " — " + awakening.subtitle(), roleColor));
-                  if (enabled) {
+                  {
+                    long delay = opening ? dusk ? 80 : 40 : dusk ? 40 : 0;
+                    long stay = Math.max(2000, game.seconds() * 1000L - delay * 50);
                     Consumer<Player> cue =
                         target -> {
-                          title(target, awakening.title(), awakening.subtitle(), roleColor);
-                          switch (phase) {
+                          instruct(target, awakening.title(), awakening.subtitle(), roleColor, stay);
+                          if (enabled)
+                            switch (phase) {
                             case "CUPID" -> sound(target, Sound.BLOCK_NOTE_BLOCK_HARP, .3f, 1.5f);
                             case "GUARD" ->
                                 sound(target, Sound.BLOCK_ENCHANTMENT_TABLE_USE, .25f, 1f);
@@ -185,17 +202,54 @@ final class WerewolfAmbience {
                               // gathering.
                           }
                         };
-                    long delay = opening ? dusk ? 80 : 40 : dusk ? 40 : 0;
                     if (delay > 0) delayed(s, player, event, epoch, delay, cue);
                     else cue.accept(player);
                   }
                 }
                 if (enabled && phase.equals("NIGHT") && view.actor())
                   heart(s, player, event, epoch);
+                if (!phase.equals("DISCUSSION") && view.actor())
+                  delayed(
+                      s,
+                      player,
+                      event,
+                      epoch,
+                      dusk || opening ? opening ? 100 : 60 : 20,
+                      plugin.gui::open);
+                else if (player.getOpenInventory().getTopInventory().getHolder()
+                    instanceof CompassMenuHolder) player.closeInventory();
                 hud(s, player);
               }));
     }
     return CompletableFuture.allOf(tasks.toArray(CompletableFuture[]::new));
+  }
+
+  /** Public story beats: who just died (with their role) and which role wakes or sleeps. */
+  private List<Component> news(ArenaSession s, WerewolfGame game, String phase) {
+    List<Component> lines = new ArrayList<>(deaths(s, game));
+    String previous = s.ambiencePhase;
+    s.ambiencePhase = phase;
+    if (!previous.equals(phase)) {
+      String sleep = WerewolfPresentation.sleepLine(previous);
+      if (sleep != null) lines.add(Component.text(sleep, NamedTextColor.GRAY));
+      String wake = WerewolfPresentation.wakeLine(phase);
+      if (wake != null)
+        lines.add(
+            Component.text(
+                wake, CompassGUI.roleColor(WerewolfPresentation.turnRole(phase))));
+    }
+    return lines;
+  }
+
+  private List<Component> deaths(ArenaSession s, WerewolfGame game) {
+    List<Component> lines = new ArrayList<>();
+    for (var entry : s.players.entrySet())
+      if (!game.alive().contains(entry.getKey()) && s.revealed.add(entry.getKey()))
+        lines.add(
+            Component.text(
+                WerewolfPresentation.deathLine(entry.getValue(), game.role(entry.getKey())),
+                NamedTextColor.DARK_RED));
+    return lines;
   }
 
   void tick(ArenaSession s) {
@@ -241,6 +295,7 @@ final class WerewolfAmbience {
     s.ambienceFinale = true;
     String result = WerewolfPresentation.result(game.winner()), event = s.eventId;
     long epoch = s.ambienceEpoch;
+    List<Component> news = deaths(s, game);
     List<CompletableFuture<?>> tasks = new ArrayList<>();
     for (UUID id : s.players.keySet()) {
       Player p = Bukkit.getPlayer(id);
@@ -253,6 +308,7 @@ final class WerewolfAmbience {
               epoch,
               true,
               player -> {
+                news.forEach(player::sendMessage);
                 player.sendMessage(Component.text("Game over — " + result, GOLD));
                 if (s.config.werewolf().ambienceEnabled()) {
                   sound(player, Sound.ENTITY_PLAYER_LEVELUP, .3f, .85f);
@@ -266,6 +322,9 @@ final class WerewolfAmbience {
   void clearNow(Player p, ArenaSession s) {
     if (s == null || !(s.game instanceof WerewolfGame)) return;
     p.sendActionBar(Component.empty());
+    plugin.village.unconceal(p, s);
+    if (p.getOpenInventory().getTopInventory().getHolder() instanceof CompassMenuHolder)
+      p.closeInventory();
     if (!s.ambienceFinale) p.clearTitle();
   }
 }

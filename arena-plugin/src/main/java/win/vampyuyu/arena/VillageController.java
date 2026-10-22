@@ -323,6 +323,7 @@ final class VillageController {
                                   false));
                         else p.removePotionEffect(PotionEffectType.BLINDNESS);
                         p.setPlayerTime(night ? 18000 : 1000, false);
+                        conceal(p, s, game, night);
                         return null;
                       })));
     }
@@ -341,6 +342,46 @@ final class VillageController {
                 }));
     }
     return CompletableFuture.allOf(tasks.toArray(CompletableFuture[]::new));
+  }
+
+  /**
+   * At night nobody sees anybody (no name tags); eliminated players are always hidden from the
+   * living, but spectators keep seeing everyone.
+   */
+  private void conceal(Player viewer, ArenaSession s, WerewolfGame game, boolean night) {
+    boolean viewerAlive = game.alive().contains(viewer.getUniqueId());
+    for (UUID other : s.players.keySet()) {
+      Player o = Bukkit.getPlayer(other);
+      if (o == null || other.equals(viewer.getUniqueId())) continue;
+      boolean hide = viewerAlive && (night || !game.alive().contains(other));
+      try {
+        if (hide) viewer.hidePlayer(plugin, o);
+        else viewer.showPlayer(plugin, o);
+      } catch (RuntimeException ignored) {
+        // Visibility is cosmetic; never abort a phase transition over it.
+      }
+    }
+  }
+
+  /** Makes a leaving player and everyone else visible to each other again. */
+  void unconceal(Player leaving, ArenaSession s) {
+    for (UUID other : s.players.keySet()) {
+      Player o = Bukkit.getPlayer(other);
+      if (o == null || o == leaving) continue;
+      try {
+        leaving.showPlayer(plugin, o);
+      } catch (RuntimeException ignored) {
+      }
+      plugin.onPlayer(
+          o,
+          () -> {
+            try {
+              o.showPlayer(plugin, leaving);
+            } catch (RuntimeException ignored) {
+            }
+            return null;
+          });
+    }
   }
 
   private CompletableFuture<Void> teleport(Player p, ArenaSession s, ArenaConfig.Spawn point) {

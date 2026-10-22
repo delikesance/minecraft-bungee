@@ -79,9 +79,38 @@ public final class CompassGUI implements Listener {
     p.getInventory().setItem(8, item);
   }
 
+  /** Werewolves carry a claw instead of the compass; it opens the same menu and works as the key. */
+  void arm(Player p, String role) {
+    if (!role.equals("WEREWOLF")) {
+      // Menus open by themselves during a village game; the compass is no longer needed.
+      p.getInventory().setItem(8, null);
+      return;
+    }
+    ItemStack claw =
+        item(
+            Material.BONE,
+            "Werewolf claw",
+            "Vote for tonight's victim with the other wolves",
+            "Right-click to open the voting menu");
+    var meta = claw.getItemMeta();
+    meta.displayName(text("Werewolf claw", NamedTextColor.RED));
+    meta.getPersistentDataContainer().set(key, PersistentDataType.BYTE, (byte) 1);
+    claw.setItemMeta(meta);
+    p.getInventory().setItem(8, claw);
+  }
+
   public void open(Player p) {
     ArenaSession s = plugin.arenas.session(p.getUniqueId());
     if (s == null) return;
+    boolean voting =
+        s.game != null
+            && (s.game.phase().equals("DAY_VOTE")
+                || s.game.phase().equals("NIGHT") && s.game.role(p.getUniqueId()).equals("WEREWOLF"));
+    boolean brewing =
+        s.game != null
+            && s.game.phase().equals("WITCH")
+            && s.game.role(p.getUniqueId()).equals("WITCH");
+    String name = voting ? "Voting" : brewing ? "Alembic" : "Arena compass";
     boolean skinned = plugin.skin != null && plugin.skin.active(p);
     CompassMenuHolder holder =
         new CompassMenuHolder(
@@ -90,10 +119,45 @@ public final class CompassGUI implements Listener {
             skinned,
             skinned
                 ? MenuSkin.title(
-                    MenuSkin.COMPASS, MenuSkin.ROWS_54, Component.text("Arena compass", GOLD))
-                : Component.text("Vampyuyu · Arena compass"));
-    render(holder, p, s);
+                    brewing ? MenuSkin.ALEMBIC : MenuSkin.COMPASS,
+                    MenuSkin.ROWS_54,
+                    Component.text(name, GOLD))
+                : Component.text("Vampyuyu · " + name));
     p.openInventory(holder.getInventory());
+    render(holder, p, s);
+  }
+
+  /** Menus a player must act in cannot be closed; they reopen on the next tick. */
+  boolean mandatory(ArenaSession s, UUID id) {
+    return s != null
+        && !s.stopping
+        && !s.finishing
+        && s.game instanceof WerewolfGame game
+        && WerewolfPresentation.menuRequired(game, id);
+  }
+
+  @EventHandler(priority = EventPriority.MONITOR)
+  public void close(InventoryCloseEvent e) {
+    if (!(e.getPlayer() instanceof Player p)
+        || !(e.getInventory().getHolder() instanceof CompassMenuHolder)) return;
+    ArenaSession open = plugin.arenas.session(p.getUniqueId());
+    // A disconnecting player gets the stored snapshot instead; never touch it here.
+    if (open != null
+        && open.game instanceof WerewolfGame
+        && e.getReason() != InventoryCloseEvent.Reason.DISCONNECT) clearBottom(p);
+    if (!mandatory(open, p.getUniqueId())) return;
+    p.getScheduler()
+        .runDelayed(
+            plugin,
+            task -> {
+              if (p.isOnline()
+                  && !plugin.arenas.transitioning(p.getUniqueId())
+                  && mandatory(plugin.arenas.session(p.getUniqueId()), p.getUniqueId())
+                  && !(p.getOpenInventory().getTopInventory().getHolder()
+                      instanceof CompassMenuHolder)) open(p);
+            },
+            null,
+            2);
   }
 
   void refresh(Player p) {
@@ -181,11 +245,18 @@ public final class CompassGUI implements Listener {
       holder.targets.put(slot, entry.getKey());
       inv.setItem(slot, head);
     }
-    if (!holder.skinned)
+    // Werewolf menus use the whole window: players on top, everything else in the player-inventory
+    // half (the arena inventory is otherwise empty). Other games keep the bottom row of the chest.
+    boolean wide = game instanceof WerewolfGame;
+    if (wide) clearBottom(p);
+    else if (!holder.skinned)
       for (int i = 45; i < 54; i++) inv.setItem(i, item(Material.RED_STAINED_GLASS_PANE, " "));
+    int roleAt = wide ? 67 : 45, bookAt = wide ? 68 : 48, clockAt = wide ? 81 : 50;
+    int[] abilitySlots = wide ? new int[] {83, 84, 85} : new int[] {46, 47, 49, 51, 52};
+    holder.leaveSlot = wide ? 88 : 53;
+    holder.phase = game == null ? "" : game.phase();
     String role = game == null ? "Not assigned yet" : game.role(p.getUniqueId());
-    inv.setItem(
-        45,
+    ItemStack roleCard =
         themed(
             holder,
             item(
@@ -195,15 +266,15 @@ public final class CompassGUI implements Listener {
                     ? "The game starts when an administrator is ready."
                     : friendly(game.help(p.getUniqueId()), s),
                 "Role information is visible only to you."),
-            "star"));
-    ItemStack roleCard = inv.getItem(45);
-    if (roleCard != null) {
-      var meta = roleCard.getItemMeta();
-      meta.displayName(text("Your secret role: " + role, roleColor(role)));
-      roleCard.setItemMeta(meta);
-    }
-    inv.setItem(
-        48,
+            "star");
+    var roleMeta = roleCard.getItemMeta();
+    roleMeta.displayName(text("Your secret role: " + role, roleColor(role)));
+    roleCard.setItemMeta(roleMeta);
+    place(inv, p, roleAt, roleCard);
+    place(
+        inv,
+        p,
+        bookAt,
         themed(
             holder,
             item(
@@ -216,8 +287,10 @@ public final class CompassGUI implements Listener {
                     ? friendly(game.help(p.getUniqueId()), s)
                     : "Day ties and night ties eliminate nobody."),
             "book"));
-    inv.setItem(
-        50,
+    place(
+        inv,
+        p,
+        clockAt,
         themed(
             holder,
             item(
@@ -230,14 +303,24 @@ public final class CompassGUI implements Listener {
                         : Math.max(0, (s.phaseEndsAt - System.currentTimeMillis() + 999) / 1000)
                             + " seconds remaining"),
             "clock"));
+    if (wide)
+      place(
+          inv,
+          p,
+          66,
+          themed(
+              holder,
+              item(Material.BELL, "Village", alive.size() + " of " + s.players.size() + " alive"),
+              "tag"));
     if (game != null) {
       int i = 0;
-      int[] slots = {46, 47, 49, 51, 52};
       for (var ability : game.abilities(p.getUniqueId()).entrySet()) {
-        if (i >= slots.length) break;
-        int position = slots[i++];
+        if (i >= abilitySlots.length) break;
+        int position = abilitySlots[i++];
         holder.abilities.put(position, ability.getKey());
-        inv.setItem(
+        place(
+            inv,
+            p,
             position,
             themed(
                 holder,
@@ -245,12 +328,41 @@ public final class CompassGUI implements Listener {
                 "vial"));
       }
     }
-    inv.setItem(
-        53,
-        themed(
-            holder,
-            item(Material.RED_WOOL, "Leave arena", "Restore your original items, stats and position."),
-            "exit"));
+    if (plugin.arenas.leaveBlocked(p.getUniqueId())) {
+      if (wide)
+        place(
+            inv,
+            p,
+            holder.leaveSlot,
+            item(Material.BARRIER, "Leave locked", "You cannot leave while the game is running."));
+    } else
+      place(
+          inv,
+          p,
+          holder.leaveSlot,
+          themed(
+              holder,
+              item(
+                  Material.RED_WOOL,
+                  "Leave arena",
+                  "Restore your original items, stats and position."),
+              "exit"));
+  }
+
+  /** Raw slot in the 54-slot window: 0-53 chest, 54-80 inventory rows, 81-89 hotbar. */
+  private static void place(Inventory top, Player p, int raw, ItemStack item) {
+    if (raw < 54) top.setItem(raw, item);
+    else p.getInventory().setItem(inventoryIndex(raw), item);
+  }
+
+  /** Player-inventory index behind a raw slot of the 54-slot window (54-80 rows, 81-89 hotbar). */
+  static int inventoryIndex(int raw) {
+    return raw < 81 ? raw - 54 + 9 : raw - 81;
+  }
+
+  /** Empties the menu half of the inventory; hotbar slot 8 keeps the claw or compass. */
+  private void clearBottom(Player p) {
+    for (int i = 0; i < 36; i++) if (i != 8) p.getInventory().setItem(i, null);
   }
 
   @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
@@ -274,7 +386,8 @@ public final class CompassGUI implements Listener {
       if (s == null
           || !holder.viewer.equals(p.getUniqueId())
           || !holder.arenaId.equals(s.config.id())) return;
-      if (e.getRawSlot() == 53) {
+      if (e.getRawSlot() == holder.leaveSlot && holder.leaveSlot != -1) {
+        if (plugin.arenas.leaveBlocked(p.getUniqueId())) return;
         plugin.onPlayer(
             p,
             () -> {
@@ -282,6 +395,10 @@ public final class CompassGUI implements Listener {
               plugin.handle(p, plugin.arenas.leaveArena(p));
               return null;
             });
+        return;
+      }
+      if (s.game != null && !s.game.phase().equals(holder.phase)) {
+        refresh(p);
         return;
       }
       String ability = holder.abilities.get(e.getRawSlot());
