@@ -323,6 +323,9 @@ final class WerewolfAmbience {
           true,
           player -> {
             screen.hideVotes(player);
+            // The menus come back with the night; until then nothing hides the verdict.
+            if (player.getOpenInventory().getTopInventory().getHolder()
+                instanceof CompassMenuHolder) player.closeInventory();
             player.sendMessage(separator("Verdict", WerewolfPresentation.VOTE));
             news.forEach(player::sendMessage);
             if (lynched == null) player.sendMessage(Component.text(subtitle + ".", INK_MUTED));
