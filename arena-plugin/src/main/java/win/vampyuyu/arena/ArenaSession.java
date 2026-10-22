@@ -22,6 +22,9 @@ public final class ArenaSession {
   /** The role cards are dealt face down and turned over at this time. */
   volatile long cardsTurnAt;
 
+  /** The day vote's verdict is on screen: no menu covers it. */
+  volatile boolean verdictShowing;
+
   volatile boolean ambienceNight, ambienceFinale;
   volatile String ambiencePhase = "";
   final Set<UUID> revealed = ConcurrentHashMap.newKeySet();

@@ -285,6 +285,71 @@ final class WerewolfAmbience {
     return CompletableFuture.allOf(tasks.toArray(CompletableFuture[]::new));
   }
 
+  /** How long the village sees its verdict in daylight before night falls. */
+  static final long VERDICT_SECONDS = 4;
+
+  /**
+   * The village's verdict, still in daylight: whoever the day vote eliminated dies in front of
+   * everyone before night falls, instead of being found missing at dawn.
+   */
+  CompletableFuture<Void> verdict(ArenaSession s, WerewolfGame.Verdict verdict) {
+    if (verdict == null || !(s.game instanceof WerewolfGame game))
+      return CompletableFuture.completedFuture(null);
+    String event = s.eventId;
+    long epoch = s.ambienceEpoch;
+    UUID lynched = verdict.lynched();
+    // Only the vote's dead: the lynched and a lover who follows them. Any other death (e.g. a
+    // departure's lover) keeps its own announcement at dusk.
+    List<UUID> fallen = new ArrayList<>();
+    if (lynched != null) fallen.add(lynched);
+    UUID grieving = lynched == null ? null : game.partner(lynched);
+    if (grieving != null) fallen.add(grieving);
+    fallen.removeIf(id -> game.alive().contains(id) || s.revealed.contains(id));
+    List<Component> news = deaths(s, game, fallen); // Announced now, so dusk does not repeat them.
+    String heading = lynched == null ? "Nobody is eliminated" : "☠ " + s.players.get(lynched);
+    String subtitle =
+        lynched == null ? "No majority: the village spares everyone" : "The village has spoken";
+    boolean enabled = s.config.werewolf().ambienceEnabled();
+    for (UUID id : s.players.keySet()) {
+      Player p = Bukkit.getPlayer(id);
+      if (p == null) continue;
+      String role = game.role(id);
+      String cause = id.equals(lynched) ? "The village voted you out" : "You died of grief";
+      dispatch(
+          s,
+          p,
+          event,
+          epoch,
+          true,
+          player -> {
+            screen.hideVotes(player);
+            // The menus come back with the night; until then nothing hides the verdict.
+            if (player.getOpenInventory().getTopInventory().getHolder()
+                instanceof CompassMenuHolder) player.closeInventory();
+            player.sendMessage(separator("Verdict", WerewolfPresentation.VOTE));
+            news.forEach(player::sendMessage);
+            if (lynched == null) player.sendMessage(Component.text(subtitle + ".", INK_MUTED));
+            if (!enabled) return;
+            if (fallen.contains(id)) {
+              title(
+                  player,
+                  "☠ You died",
+                  cause
+                      + ": you were "
+                      + WerewolfMenus.article(role)
+                      + WerewolfPresentation.roleName(role),
+                  TextColor.color(WerewolfPresentation.WEREWOLF));
+              sound(player, Sound.ENTITY_WITHER_SPAWN, .15f, 1.4f);
+            } else {
+              title(player, heading, subtitle, VOTE);
+              sound(player, Sound.BLOCK_BELL_RESONATE, .3f, lynched == null ? 1.2f : .8f);
+            }
+          });
+    }
+    return CompletableFuture.runAsync(
+        () -> {}, CompletableFuture.delayedExecutor(VERDICT_SECONDS, TimeUnit.SECONDS));
+  }
+
   /** Public story beats: who just died (with their role) and which role wakes or sleeps. */
   private List<Component> news(ArenaSession s, WerewolfGame game, String phase) {
     List<Component> lines = new ArrayList<>(deaths(s, game));
@@ -305,9 +370,16 @@ final class WerewolfAmbience {
   }
 
   private List<Component> deaths(ArenaSession s, WerewolfGame game) {
+    return deaths(s, game, s.players.keySet());
+  }
+
+  /** The same, for these players only. */
+  private List<Component> deaths(ArenaSession s, WerewolfGame game, Collection<UUID> among) {
     List<Component> lines = new ArrayList<>();
     for (var entry : s.players.entrySet())
-      if (!game.alive().contains(entry.getKey()) && s.revealed.add(entry.getKey()))
+      if (among.contains(entry.getKey())
+          && !game.alive().contains(entry.getKey())
+          && s.revealed.add(entry.getKey()))
         lines.add(
             Component.text(
                 "☠ " + WerewolfPresentation.deathLine(entry.getValue(), game.role(entry.getKey())),

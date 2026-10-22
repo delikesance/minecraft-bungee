@@ -139,6 +139,7 @@ public final class CompassGUI implements Listener {
     return s != null
         && !s.stopping
         && !s.finishing
+        && !s.verdictShowing
         && s.game instanceof WerewolfGame game
         && WerewolfPresentation.menuRequired(game, id);
   }

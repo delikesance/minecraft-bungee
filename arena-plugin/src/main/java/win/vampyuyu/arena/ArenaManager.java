@@ -582,9 +582,14 @@ public final class ArenaManager {
     s.ambienceEpoch++;
     s.observedPhase = s.game.phase();
     s.phaseEndsAt = System.currentTimeMillis() + phaseMillis(s);
+    // Taken now: by the time the presentation reaches it, the game may have moved on.
+    WerewolfGame.Verdict verdict = s.game instanceof WerewolfGame game ? game.takeVerdict() : null;
+    if (verdict != null) s.verdictShowing = true;
     CompletableFuture<Void> previousPresentation = s.presentation;
     s.presentation =
         previousPresentation
+            .thenCompose(v -> plugin.ambience.verdict(s, verdict))
+            .whenComplete((v, e) -> s.verdictShowing = false)
             .thenCompose(v -> plugin.village.present(s, previous))
             .thenRun(
                 () -> {
@@ -635,8 +640,9 @@ public final class ArenaManager {
                   p.setFlying(true);
                 } else p.setGameMode(GameMode.SPECTATOR);
               }
-              if (p.getOpenInventory().getTopInventory().getHolder() instanceof CompassMenuHolder)
-                plugin.gui.open(p);
+              if (!s.verdictShowing
+                  && p.getOpenInventory().getTopInventory().getHolder()
+                      instanceof CompassMenuHolder) plugin.gui.open(p);
               return null;
             });
     }
