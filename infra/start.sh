@@ -14,6 +14,12 @@ case "$1" in
    cp -R /opt/vampyuyu-lobby-palace/. /data/world/datapacks/vampyuyu-palace/
    touch /data/.vampyuyu-palace
   fi
+  # The bundled palace datapack uses 1.21.9 command syntax (e.g. gamerule doDaylightCycle); newer versions
+  # refuse to parse it. A lobby built by it keeps its blocks and settings, so retire only our own copy.
+  if [ "${SERVER_ID:-}" = lobby ] && [ "$VERSION" != 1.21.9 ] && [ -f /data/.vampyuyu-palace ] && [ -d /data/world/datapacks/vampyuyu-palace ]; then
+   rm -rf /data/world/datapacks/vampyuyu-palace
+   echo "Retired the 1.21.9 lobby palace datapack on $VERSION; the built world is kept" >&2
+  fi
   # Claims exist only on Creative; the jar comes from the image, claim data stays in /data.
   if [ "${SERVER_ID:-}" = creative ]; then
    # Drop any previously installed copy so two jars never claim the same plugin name.
