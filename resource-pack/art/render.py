@@ -77,7 +77,7 @@ def lobby():
 <path d="M333 183 V132 a81 81 0 0 1 162 0 V183" fill="none" stroke="#bfe6b0" stroke-width="2.5"/><path d="M339 183 V132 a75 75 0 0 1 150 0 V183" fill="none" stroke="#fff" stroke-opacity=".25"/>
 <circle cx="258" cy="78" r="46" fill="url(#st)"/>
 <path d="M258 49l7 21 22 .3-17.6 13 6.6 21-18-12.7-18 12.7 6.6-21L229 70.3l22-.3z" fill="#f2f8ff" stroke="#cfe4ff" stroke-width="1.5" stroke-linejoin="round"/>
-'''
+{hills27()}{lower_panel27()}'''
     body = (title("Worlds")
             + text(21, 186, 162, "CREATIVE", 19, "#fff1e0", True, "center", 4)
             + text(21, 210, 162, "Build freely. Dream bigger.", 12, "#ffd7d2", extra="white-space:nowrap")
@@ -100,6 +100,57 @@ def pines(xs, y, h, fill):
     return "".join(f'<path d="M{x} {y} l{h*.28:.0f} {h} h{-h*.56:.0f} z" fill="{fill}"/>'
                    f'<path d="M{x} {y+h*.35:.0f} l{h*.34:.0f} {h*.75:.0f} h{-h*.68:.0f} z" fill="{fill}"/>' for x in xs)
 
+def village(top, bottom, seed=5):
+    """Lit night village behind the inventory half, so the lower window is scenery, not a blank panel."""
+    import random
+    r = random.Random(seed)
+    base = top + (bottom - top) * .62
+    out = f'<rect x="0" y="{top}" width="528" height="{bottom - top}" fill="#1a1030"/>'
+    out += f'<ellipse cx="264" cy="{base}" rx="300" ry="60" fill="#ffb454" fill-opacity=".10"/>'
+    x = 6
+    while x < 520:
+        w, h = r.randint(40, 64), r.randint(44, 84)
+        out += (f'<rect x="{x}" y="{base - h:.0f}" width="{w}" height="{h}" fill="#34205a"/>'
+                f'<path d="M{x - 5} {base - h:.0f} l{w / 2 + 5:.0f} -26 l{w / 2 + 5:.0f} 26z" fill="#22143f"/>')
+        for wx in range(x + 9, x + w - 12, 18):
+            for wy in range(int(base - h + 16), int(base - 14), 24):
+                if r.random() < .7:
+                    out += f'<rect x="{wx}" y="{wy}" width="9" height="12" fill="#ffd27a" fill-opacity=".9"/>'
+        x += w + r.randint(8, 20)
+    out += f'<rect x="0" y="{base:.0f}" width="528" height="{bottom - base:.0f}" fill="#120a24"/>'
+    for _ in range(14):
+        out += (f'<circle cx="{r.randint(10, 518)}" cy="{r.randint(int(top + 20), int(bottom - 20))}" r="2" '
+                'fill="#fff0a8" fill-opacity=".8"/>')
+    return out
+
+def lower_panel(claw=False):
+    """Painted bottom half of the 54-slot window: the player-inventory area (GUI y 140-222).
+    Faint slot outlines sit exactly under the vanilla slots (x=8+18c, y=140+18r, hotbar y=198)."""
+    slots = "".join(
+        f'<rect x="{24 + 54 * c}" y="{420 + 54 * r}" width="48" height="48" rx="7" fill="#0a0820" fill-opacity=".16" '
+        'stroke="#e9d99b" stroke-opacity=".3" stroke-width="1.5"/>'
+        for r in range(3) for c in range(9))
+    hotbar = "".join(
+        f'<rect x="{24 + 54 * c}" y="594" width="48" height="48" rx="7" fill="{"#c8453a" if claw and c == 8 else "#0a0820"}" fill-opacity="{.16}" '
+        f'stroke="{"#f08a80" if claw and c == 8 else "#e9d99b"}" stroke-opacity="{.7 if claw and c == 8 else .22}" stroke-width="1.5"/>'
+        for c in range(9))
+    return (village(402, 666) + glass(15, 408, 498, 174, 16, .12) + slots + glass(15, 582, 498, 66, 16, .16) + hotbar)
+
+def hills27():
+    """Night hills and pines behind the inventory half of the 27-slot windows."""
+    return village(236, 504, 9)
+
+def lower_panel27():
+    """Bottom half of the 27-slot window (176x168): inventory rows at GUI y=84/102/120, hotbar y=142."""
+    slots = "".join(
+        f'<rect x="{24 + 54 * c}" y="{252 + 54 * r}" width="48" height="48" rx="7" fill="#0a0820" fill-opacity=".16" '
+        'stroke="#e9d99b" stroke-opacity=".3" stroke-width="1.5"/>'
+        for r in range(3) for c in range(9))
+    hotbar = "".join(
+        f'<rect x="{24 + 54 * c}" y="426" width="48" height="48" rx="7" fill="#0a0820" fill-opacity=".16" '
+        'stroke="#e9d99b" stroke-opacity=".3" stroke-width="1.5"/>' for c in range(9))
+    return glass(15, 240, 498, 174, 16, .12) + slots + glass(15, 414, 498, 72, 16, .16) + hotbar
+
 def setup():
     """/arena setup: 54-slot container (176x222). Rows y=51+54r; strips group the controls."""
     W, H = 528, 666
@@ -112,12 +163,11 @@ def setup():
 <path d="M0 420 C110 380 200 430 300 410 S450 390 528 420 V{H} H0z" fill="#1b1442"/>
 {pines([20, 70, 130, 200, 300, 380, 440, 500], 430, 80, '#0f0a2a')}
 <path d="M0 520 C120 500 230 530 340 515 S480 505 528 525 V{H} H0z" fill="#0b0720"/>
-{''.join(glass(21, 53 + 54 * r, 486, 50, 14, .55) for r in range(4))}{glass(21, 53 + 270, 486, 50, 14, .45)}
+{''.join(glass(21, 53 + 54 * r, 486, 50, 14, .55) for r in range(4))}
 <circle cx="{21 + 7 * 54 + 27}" cy="78" r="30" fill="url(#gg)"/><circle cx="{21 + 8 * 54 + 27}" cy="78" r="30" fill="url(#rg)"/>
-<circle cx="{21 + 8 * 54 + 27}" cy="{51 + 4 * 54 + 27}" r="30" fill="url(#rg)"/>""" 
+<circle cx="{21 + 8 * 54 + 27}" cy="{51 + 4 * 54 + 27}" r="30" fill="url(#rg)"/>{lower_panel()}""" 
     caps = ["ARENA", "VILLAGE", "LIMITS", "RULES"]
     body = title() + "".join(text(28, 51 + 54 * i + 18, 50, c, 11, "#e9d99b", True, "left", 1) for i, c in enumerate(caps))
-    body += text(75, 51 + 270 + 16, 300, "Back to the arena list", 14, "#d9d0ea", align="left", extra="white-space:nowrap")
     return W, H, frame(W, H, svg, body)
 
 def listing():
@@ -131,7 +181,7 @@ def listing():
 <path d="M0 470 L90 400 L170 460 L260 390 L350 470 L440 400 L528 460 V{H} H0z" fill="#241240"/>
 <path d="M0 520 Q264 480 528 520 V{H} H0z" fill="#150a2c"/>
 {glass(21, 51, 486, 219, 18)}
-<rect x="171" y="326" width="186" height="42" rx="21" fill="#e9d99b" fill-opacity=".18" stroke="#e9d99b" stroke-opacity=".8" stroke-width="2"/>"""
+<rect x="171" y="326" width="186" height="42" rx="21" fill="#e9d99b" fill-opacity=".18" stroke="#e9d99b" stroke-opacity=".8" stroke-width="2"/>{lower_panel()}"""
     body = title() + text(171, 335, 186, "Create", 15, "#fff6d8")
     return W, H, frame(W, H, svg, body)
 
@@ -145,8 +195,8 @@ def detail():
 <circle cx="264" cy="132" r="96" fill="url(#pg)"/>
 <circle cx="264" cy="132" r="62" fill="none" stroke="#d8fff4" stroke-width="3"/><circle cx="264" cy="132" r="50" fill="none" stroke="#fff" stroke-opacity=".35" stroke-dasharray="3 6"/>
 <circle cx="156" cy="132" r="32" fill="#fff" fill-opacity=".1" stroke="#fff" stroke-opacity=".4"/>
-<circle cx="372" cy="132" r="32" fill="#f08a80" fill-opacity=".14" stroke="#f08a80" stroke-opacity=".6"/>"""
-    body = title() + text(75, 51 + 108 + 16, 300, "Back to the list", 14, "#fff6d8", align="left", extra="white-space:nowrap")
+<circle cx="372" cy="132" r="32" fill="#f08a80" fill-opacity=".14" stroke="#f08a80" stroke-opacity=".6"/>{hills27()}{lower_panel27()}"""
+    body = title()
     return W, H, frame(W, H, svg, body)
 
 def confirm():
@@ -158,7 +208,7 @@ def confirm():
 <circle cx="264" cy="110" r="120" fill="url(#eg)"/>
 <path d="M264 36 l44 76 h-88z" fill="none" stroke="#f0b26a" stroke-width="2.5" stroke-linejoin="round"/><path d="M264 62v26M264 98v2" stroke="#f0b26a" stroke-width="4" stroke-linecap="round"/>
 <rect x="75" y="155" width="162" height="52" rx="18" fill="#fff" fill-opacity=".1" stroke="#fff" stroke-opacity=".55" stroke-width="2"/>
-<rect x="291" y="155" width="162" height="52" rx="18" fill="#d6483c" fill-opacity=".35" stroke="#f08a80" stroke-width="2"/>"""
+<rect x="291" y="155" width="162" height="52" rx="18" fill="#d6483c" fill-opacity=".35" stroke="#f08a80" stroke-width="2"/>{hills27()}{lower_panel27()}"""
     body = (title() + text(75, 159 + 14, 162, "CANCEL", 17, "#fff6d8", True, "center", 3).replace("top:173px", "top:170px")
             + text(291, 170, 162, "CONFIRM", 17, "#ffd6d0", True, "center", 3)
             + text(60, 124, 408, "This cannot be undone.", 13, "#ffe3c4"))
@@ -222,7 +272,7 @@ def render_icons():
     print("wrote", len(ICONS), "icons")
 
 def compass():
-    """In-game arena compass: heads on a council ring around a campfire, controls on the bottom row."""
+    """In-game arena compass: heads on a council ring under a howling-wolf moon, controls on the bottom row."""
     W, H = 528, 666
     svg = f"""<defs>{grad('sk', [(0, '#080a24'), (.4, '#241c58'), (.58, '#5c3070'), (.66, '#120b2a'), (1, '#0a0618')])}
 <radialGradient id="mg"><stop offset="0" stop-color="#fff6d8" stop-opacity=".8"/><stop offset="1" stop-color="#8aa0ff" stop-opacity="0"/></radialGradient>
@@ -232,13 +282,36 @@ def compass():
 <g fill="#140d33"><path d="M0 330 V220 h30 v-26 q14 -26 28 0 v26 h36 v-40 q16 -30 32 0 v40 h20 V330z"/><path d="M528 330 V206 h-34 v-30 q-16 -28 -32 0 v30 h-40 v-24 q-14 -24 -28 0 v24 h-18 V330z"/></g>
 <ellipse cx="264" cy="186" rx="236" ry="132" fill="#0a0820" fill-opacity=".45" stroke="#e9d99b" stroke-opacity=".55" stroke-width="2"/>
 <ellipse cx="264" cy="186" rx="226" ry="122" fill="none" stroke="#fff" stroke-opacity=".12" stroke-dasharray="3 7"/>
-<circle cx="264" cy="186" r="60" fill="url(#fg)"/><path d="M248 200 l32 -8 M248 192 l32 8" stroke="#5a3418" stroke-width="5" stroke-linecap="round"/>
-<path d="M264 196 q-14 -22 0 -42 q14 20 0 42z" fill="#ff9a3c"/><path d="M264 196 q-7 -12 0 -24 q7 12 0 24z" fill="#fff0a8"/>
-{glass(21, 53 + 270, 486, 50, 16, .5)}
+<circle cx="264" cy="170" r="96" fill="url(#mg)"/><circle cx="264" cy="170" r="58" fill="#fff4d6"/>
+<g fill="#e3d3a4" fill-opacity=".55"><circle cx="246" cy="152" r="9"/><circle cx="280" cy="186" r="12"/><circle cx="268" cy="140" r="5"/></g>
+<path d="M214 252 Q264 214 314 252 V262 H214z" fill="#0b0720"/>
+<path d="M246 238 l4 -22 l-8 -10 l12 2 l8 -12 l6 12 l12 -2 l-8 10 l4 22 l-9 -6 h-12z" fill="#05030f"/>
+<g fill="#05030f"><path d="M150 96 q-10 -10 -22 0 q10 2 14 10 q4 -8 8 -10z"/><path d="M400 120 q-10 -10 -22 0 q10 2 14 10 q4 -8 8 -10z"/><path d="M360 70 q-8 -8 -18 0 q8 2 11 8 q3 -6 7 -8z"/></g>
+<g fill="#ffcf70"><circle cx="60" cy="300" r="5"/><circle cx="468" cy="300" r="5"/></g>
+<circle cx="60" cy="300" r="26" fill="url(#fg)"/><circle cx="468" cy="300" r="26" fill="url(#fg)"/>
+<g fill="#05030f"><rect x="57" y="302" width="6" height="26"/><rect x="465" y="302" width="6" height="26"/></g>
+<g fill="#ffd27a" fill-opacity=".9"><rect x="30" y="236" width="8" height="10"/><rect x="48" y="236" width="8" height="10"/><rect x="108" y="226" width="8" height="10"/><rect x="420" y="222" width="8" height="10"/><rect x="474" y="236" width="8" height="10"/></g>
 <path d="M0 470 Q132 440 264 465 T528 450 V{H} H0z" fill="#0b0720"/>{pines([30, 90, 160, 260, 350, 430, 490], 470, 90, '#080518')}
-<path d="M0 560 Q132 535 264 555 T528 545 V{H} H0z" fill="#06040f"/>"""
+<path d="M0 560 Q132 535 264 555 T528 545 V{H} H0z" fill="#06040f"/>{lower_panel(True)}"""
     body = title()
     return W, H, frame(W, H, svg, body)
+
+def alembic():
+    """Witch potion phase: same grid as the compass, a glowing flask instead of the campfire."""
+    W, H = 528, 666
+    svg = f"""<defs>{grad('sk', [(0, '#0b1030'), (.4, '#2b1f5e'), (.58, '#4a2a78'), (.66, '#120b2a'), (1, '#0a0618')])}
+<radialGradient id="mg"><stop offset="0" stop-color="#fff6d8" stop-opacity=".8"/><stop offset="1" stop-color="#8aa0ff" stop-opacity="0"/></radialGradient>
+<radialGradient id="pg"><stop offset="0" stop-color="#b78cff" stop-opacity=".7"/><stop offset="1" stop-color="#8a5ad8" stop-opacity="0"/></radialGradient></defs>
+<rect width="{W}" height="{H}" fill="url(#sk)"/>{stars(300, 22, 7)}
+<circle cx="484" cy="28" r="60" fill="url(#mg)"/><circle cx="484" cy="28" r="14" fill="#fff4d6"/>
+<ellipse cx="264" cy="186" rx="236" ry="132" fill="#0a0820" fill-opacity=".45" stroke="#b78cff" stroke-opacity=".6" stroke-width="2"/>
+<circle cx="264" cy="190" r="70" fill="url(#pg)"/>
+<path d="M240 150h48M246 150v36l-26 46a14 14 0 0 0 12 20h64a14 14 0 0 0 12-20l-26-46v-36" fill="none" stroke="#e9d4ff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M232 214h64l12 22a8 8 0 0 1-7 12h-74a8 8 0 0 1-7-12z" fill="#b78cff" fill-opacity=".55"/>
+<circle cx="252" cy="200" r="4" fill="#e9d4ff"/><circle cx="276" cy="190" r="3" fill="#e9d4ff"/>
+<path d="M0 470 Q132 440 264 465 T528 450 V{H} H0z" fill="#0b0720"/>{pines([30, 90, 160, 260, 350, 430, 490], 470, 90, '#080518')}
+<path d="M0 560 Q132 535 264 555 T528 545 V{H} H0z" fill="#06040f"/>{lower_panel(True)}"""
+    return W, H, frame(W, H, svg, title())
 
 def profile():
     """/profil: balance medallion on slot 4, event history card on rows 1-4, paging on row 5."""
@@ -248,12 +321,12 @@ def profile():
 <rect width="{W}" height="{H}" fill="url(#sk)"/>{stars(160, 22, 6)}
 <circle cx="264" cy="78" r="70" fill="url(#cg)"/><circle cx="264" cy="78" r="30" fill="#e9b23a" fill-opacity=".35" stroke="#ffe9a8" stroke-width="2.5"/><circle cx="264" cy="78" r="24" fill="none" stroke="#fff" stroke-opacity=".4" stroke-dasharray="3 5"/>
 {glass(21, 105, 486, 218, 16, .5)}
-<path d="M0 450 Q264 400 528 450 V{H} H0z" fill="#3a1f5a"/><path d="M0 520 Q264 480 528 520 V{H} H0z" fill="#1a0e34"/>"""
+<path d="M0 450 Q264 400 528 450 V{H} H0z" fill="#3a1f5a"/><path d="M0 520 Q264 480 528 520 V{H} H0z" fill="#1a0e34"/>{lower_panel()}"""
     body = (title() + text(24, 66, 190, "EVENT HISTORY", 11, "#e9d99b", True, "left", 2)
             + text(318, 70, 190, "Global balance", 12, "#fff6d8", True, "left", 2))
     return W, H, frame(W, H, svg, body)
 
-ART = {"menu_lobby": lobby, "menu_setup": setup, "menu_list": listing, "menu_detail": detail, "menu_confirm": confirm, "menu_compass": compass, "menu_profile": profile}
+ART = {"menu_lobby": lobby, "menu_setup": setup, "menu_list": listing, "menu_detail": detail, "menu_confirm": confirm, "menu_compass": compass, "menu_profile": profile, "menu_alembic": alembic}
 
 def _shot(html, w, h, out):
     with tempfile.TemporaryDirectory() as tmp:

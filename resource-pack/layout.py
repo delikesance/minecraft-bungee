@@ -19,6 +19,7 @@ BACKGROUNDS = {
     "menu_confirm": (0xE500, 168, 4),
     "menu_compass": (0xE600, 222, 6),
     "menu_profile": (0xE700, 222, 6),
+    "menu_alembic": (0xE800, 222, 6),   # witch potion phase
 }
 
 TILE_W = GUI_W // COLS   # 44 GUI px
