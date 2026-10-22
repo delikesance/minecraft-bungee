@@ -28,6 +28,10 @@ commands:
     description: Toggle your own flight when your role permits it
     usage: /fly
     permission: vampyuyu.fly
+  invsee:
+    description: View an online player's inventory (read-only)
+    usage: /invsee <player>
+    permission: vampyuyu.invsee
   vampyuyuoperator:
     description: Console-only operator management by UUID
 permissions:
@@ -36,6 +40,9 @@ permissions:
   vampyuyu.warp.unlimited:
     default: op
   vampyuyu.money.admin:
+    default: op
+  vampyuyu.invsee:
+    description: View other players' inventories with /invsee
     default: op
   vampyuyu.fly:
     description: Toggle your own flight

@@ -40,7 +40,7 @@ func (s *Server) managementRoutes(mux *http.ServeMux, protected func(func(http.R
 			return
 		}
 		if e := directory.SetCommands(r.PathValue("role"), input.Commands, v.User); e != nil {
-			fail(w, 400, "invalid role commands; only ban, kick, pardon and fly are permitted")
+			fail(w, 400, "invalid role commands; only ban, kick, pardon, fly and invsee are permitted")
 			return
 		}
 		control.JSON(w, 200, map[string]bool{"ok": true})

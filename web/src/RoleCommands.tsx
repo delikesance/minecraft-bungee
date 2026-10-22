@@ -7,6 +7,7 @@ const descriptions: Record<string, string> = {
   kick: "Disconnect a player",
   pardon: "Remove a ban",
   fly: "Toggle your own flight",
+  invsee: "View a player's inventory (read-only)",
 };
 export function RoleCommands({
   csrf,

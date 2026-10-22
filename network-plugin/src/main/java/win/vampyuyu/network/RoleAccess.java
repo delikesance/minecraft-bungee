@@ -24,7 +24,8 @@ final class RoleAccess implements Listener {
             "ban", "minecraft.command.ban",
             "kick", "minecraft.command.kick",
             "pardon", "minecraft.command.pardon",
-            "fly", "vampyuyu.fly");
+            "fly", "vampyuyu.fly",
+            "invsee", InventoryViewer.PERMISSION);
     /** Builder tools every player gets on the creative server, on top of any role grants. */
     static final Set<String> CREATIVE_BUILDER = Set.of(
             "minecraft.command.give",
