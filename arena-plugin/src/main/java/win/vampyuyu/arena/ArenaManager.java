@@ -427,6 +427,13 @@ public final class ArenaManager {
     return Math.min(s.game.seconds(), s.bots.isEmpty() ? s.config.durationSeconds() : 15) * 1000L;
   }
 
+  /** Journals the current phase's timer. */
+  private void clock(ArenaSession s, String why) {
+    GamePreset game = s.game;
+    if (game != null)
+      s.journal.log("CLOCK", game.phase() + " timer: " + phaseMillis(s) / 1000 + "s (" + why + ")");
+  }
+
   public synchronized void start(String id) {
     ArenaSession s = require(id);
     if (s.stopping
@@ -459,8 +466,24 @@ public final class ArenaManager {
     s.game = presets.get(s.config.preset()).create(s.config, Set.copyOf(s.players.keySet()));
     s.botBrain = s.bots.isEmpty() ? null : new WerewolfBots(new Random());
     s.observedTurn = s.game instanceof WerewolfGame game ? game.turnKey() : "";
+    s.journal.close();
+    s.journal = WerewolfJournal.SILENT;
+    if (s.game instanceof WerewolfGame wolf && plugin.werewolfLogs != null) {
+      s.journal = plugin.werewolfLogs.open(s.config.id(), s.eventId, Map.copyOf(s.players));
+      s.journal.log(
+          "START",
+          s.players.size()
+              + " players ("
+              + s.bots.size()
+              + " bots) · time limit "
+              + s.config.durationSeconds()
+              + "s"
+              + (s.bots.isEmpty() ? "" : " · practice: every phase capped at 15s"));
+      wolf.journal(s.journal);
+    }
     s.startedAt = System.currentTimeMillis();
     s.phaseEndsAt = s.startedAt + phaseMillis(s);
+    clock(s, "opening presentation");
     s.observedPhase = s.game.phase();
     s.presentation =
         plugin
@@ -470,12 +493,16 @@ public final class ArenaManager {
             .thenCompose(v -> plugin.village.present(s, "WAITING"))
             .thenRun(
                 () -> {
-                  if (s.game != null) s.phaseEndsAt = System.currentTimeMillis() + phaseMillis(s);
+                  if (s.game != null) {
+                    s.phaseEndsAt = System.currentTimeMillis() + phaseMillis(s);
+                    clock(s, "opening presentation over, the clock restarts");
+                  }
                 })
             .thenCompose(v -> plugin.ambience.enter(s, true));
     s.presentation.whenComplete(
         (v, e) -> {
           if (e != null) {
+            s.journal.log("ERROR", "Village start failed: " + NexusArenaEngine.reason(e));
             plugin.getLogger().warning("Village start failed: " + NexusArenaEngine.reason(e));
             tell(s, "The game could not start: " + NexusArenaEngine.reason(e));
             stop(s.config.id(), "INTERRUPTED");
@@ -502,6 +529,8 @@ public final class ArenaManager {
       completion = new CompletableFuture<>();
       current.stopFuture = completion;
     }
+    WerewolfJournal journal = current.journal;
+    journal.log("STOP", "Arena stopping: " + reason + " · restoring the players");
     current
         .presentation
         .handle((ignored, error) -> (Void) null)
@@ -516,6 +545,12 @@ public final class ArenaManager {
         .whenComplete(
             (v, e) -> {
               current.finishing = false;
+              journal.log(
+                  "STOP",
+                  e == null
+                      ? "Players restored, the arena is free"
+                      : "Restoration pending: " + NexusArenaEngine.reason(e));
+              journal.close();
               if (e != null) {
                 plugin.getLogger().warning("Arena stop pending: " + NexusArenaEngine.reason(e));
                 completion.completeExceptionally(e);
@@ -566,6 +601,7 @@ public final class ArenaManager {
         continue;
       }
       boolean due = now >= s.phaseEndsAt;
+      if (due) s.journal.log("CLOCK", s.game.phase() + " timer expired");
       if (s.game instanceof WerewolfGame werewolf && s.botBrain != null) {
         String before = werewolf.turnKey();
         bots(s, werewolf, now, due);
@@ -582,30 +618,12 @@ public final class ArenaManager {
     }
   }
 
-  /** Lets the practice bots of a Werewolf game act, and writes what they did to the server log. */
+  /**
+   * Lets the practice bots of a Werewolf game act. Their clicks go through the game like anyone's,
+   * so the game's journal already records each of them with the game's answer or refusal.
+   */
   private void bots(ArenaSession s, WerewolfGame game, long now, boolean deadline) {
-    for (WerewolfBots.Action action :
-        s.botBrain.think(game, Set.copyOf(s.bots), now, s.phaseEndsAt, deadline))
-      plugin
-          .getLogger()
-          .info(
-              "[Werewolf bots] "
-                  + s.config.id()
-                  + " "
-                  + game.phase()
-                  + ": "
-                  + (action.bot() == null ? "bots" : named(s, action.bot().toString()))
-                  + " ("
-                  + action.role()
-                  + ") "
-                  + named(s, action.what()));
-  }
-
-  /** Replaces every participant UUID in a line with the participant's name. */
-  private static String named(ArenaSession s, String line) {
-    for (var entry : s.players.entrySet())
-      line = line.replace(entry.getKey().toString(), entry.getValue());
-    return line;
+    s.botBrain.think(game, Set.copyOf(s.bots), now, s.phaseEndsAt, deadline);
   }
 
   public synchronized void phaseChanged(ArenaSession s) {
@@ -625,6 +643,7 @@ public final class ArenaManager {
     s.observedPhase = s.game.phase();
     if (s.game instanceof WerewolfGame game) s.observedTurn = game.turnKey();
     s.phaseEndsAt = System.currentTimeMillis() + phaseMillis(s);
+    clock(s, previous + " → " + s.observedPhase + ", the presentation plays first");
     // Taken now: by the time the presentation reaches it, the game may have moved on.
     WerewolfGame.Verdict verdict = s.game instanceof WerewolfGame game ? game.takeVerdict() : null;
     if (verdict != null) s.verdictShowing = true;
@@ -636,12 +655,16 @@ public final class ArenaManager {
             .thenCompose(v -> plugin.village.present(s, previous))
             .thenRun(
                 () -> {
-                  if (s.game != null) s.phaseEndsAt = System.currentTimeMillis() + phaseMillis(s);
+                  if (s.game != null) {
+                    s.phaseEndsAt = System.currentTimeMillis() + phaseMillis(s);
+                    clock(s, "presentation over, the clock restarts");
+                  }
                 })
             .thenCompose(v -> plugin.ambience.enter(s, false));
     s.presentation.whenComplete(
         (v, e) -> {
           if (e != null) {
+            s.journal.log("ERROR", "Village transition failed: " + NexusArenaEngine.reason(e));
             plugin.getLogger().warning("Village transition failed: " + NexusArenaEngine.reason(e));
             tell(s, "The game was interrupted: " + NexusArenaEngine.reason(e));
             stop(s.config.id(), "INTERRUPTED");

@@ -2,6 +2,7 @@ package panel
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -21,6 +22,37 @@ func (s *Server) gameRoutes(mux *http.ServeMux, protected func(func(http.Respons
 			s.relay(w, r, "GET", "/servers/"+id+"/game/"+kind, nil)
 		}))
 	}
+	mux.HandleFunc("GET /api/v1/servers/{id}/game/logs", protected(func(w http.ResponseWriter, r *http.Request, v session) {
+		id := r.PathValue("id")
+		if !control.Valid(id) || id == "velocity" {
+			fail(w, 400, "Paper server required")
+			return
+		}
+		s.relay(w, r, "GET", "/servers/"+id+"/game/logs", nil)
+	}))
+	mux.HandleFunc("GET /api/v1/servers/{id}/game/logs/{name}", protected(func(w http.ResponseWriter, r *http.Request, v session) {
+		id, name := r.PathValue("id"), r.PathValue("name")
+		if !control.Valid(id) || id == "velocity" || !control.GameLogName.MatchString(name) {
+			fail(w, 400, "invalid server or log name")
+			return
+		}
+		res, e := s.upstream(r.Context(), "GET", "/servers/"+id+"/game/logs/"+name, nil)
+		if e != nil {
+			fail(w, 503, "controller unavailable")
+			return
+		}
+		defer res.Body.Close()
+		if res.StatusCode != 200 || res.Header.Get("Content-Type") != "text/plain; charset=utf-8" {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(res.StatusCode)
+			io.Copy(w, io.LimitReader(res.Body, 64<<10))
+			return
+		}
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.Header().Set("Content-Disposition", `attachment; filename="`+name+`"`)
+		w.WriteHeader(200)
+		io.Copy(w, io.LimitReader(res.Body, 32<<20))
+	}))
 	for _, method := range []string{"GET", "PUT"} {
 		mux.HandleFunc(method+" /api/v1/servers/{id}/game/players/{uuid}/{container}", protected(func(w http.ResponseWriter, r *http.Request, v session) {
 			id, uuid, container := r.PathValue("id"), r.PathValue("uuid"), r.PathValue("container")

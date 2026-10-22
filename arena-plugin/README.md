@@ -86,7 +86,7 @@ The local Creative `werewolf` arena is configured for X 1241–1315, Z -982–-8
 
 In the panel, select a waiting Werewolf arena and use **Solo practice → Start practice**. Choose a connected player if nobody has joined yet (a single eligible player is selected automatically), then choose the number of virtual participants. The default is seven, bounded by the configured minimum/maximum total player count. The real player joins through the normal snapshot/teleport path before the game starts. No real player is moved until the administrator confirms.
 
-Virtual participants are labeled `[Bot] Guest N` in the panel and compass. They receive ordinary randomized secret roles and act through the same rules as a click, each at a random moment of its turn, so their ballots appear under name tags while the vote is open. Every role acts: Cupid binds two lovers, the guard protects someone (never twice in a row), the seer inspects players she has not seen yet, the witch saves the wolves' victim most of the time, sometimes poisons and then goes back to sleep, and a dead bot hunter shoots. A bot only uses what its role may know (its pack, its lover, its visions, the witch's victim, public ballots). Bot wolves never split the pack: they follow a real wolf's pick as soon as it is made and line up behind one victim at the deadline. In the day vote bots follow the leader, vote at random or skip; a seer votes against a wolf she saw; nobody votes against their lover or their pack. If the vote is still tied at the deadline, bots move to one of the leaders so the day is decided. When the timer runs out, every bot that has not acted yet acts at once. Each bot action is written to the server log as `[Werewolf bots] <arena> <phase>: <bot> (<role>) <action>`. Bots do not simulate conversation. Practice phases last at most 15 seconds; normal game timings remain unchanged. Bots never connect to Minecraft, appear in TAB, spawn NPC entities, create player accounts or write inventories/snapshots. Their presence is in-memory only.
+Virtual participants are labeled `[Bot] Guest N` in the panel and compass. They receive ordinary randomized secret roles and act through the same rules as a click, each at a random moment of its turn, so their ballots appear under name tags while the vote is open. Every role acts: Cupid binds two lovers, the guard protects someone (never twice in a row), the seer inspects players she has not seen yet, the witch saves the wolves' victim most of the time, sometimes poisons and then goes back to sleep, and a dead bot hunter shoots. A bot only uses what its role may know (its pack, its lover, its visions, the witch's victim, public ballots). Bot wolves never split the pack: they follow a real wolf's pick as soon as it is made and line up behind one victim at the deadline. In the day vote bots follow the leader, vote at random or skip; a seer votes against a wolf she saw; nobody votes against their lover or their pack. If the vote is still tied at the deadline, bots move to one of the leaders so the day is decided. When the timer runs out, every bot that has not acted yet acts at once. Each bot click is written to the game log (see Werewolf game logs) with the game's answer, like a player's. Bots do not simulate conversation. Practice phases last at most 15 seconds; normal game timings remain unchanged. Bots never connect to Minecraft, appear in TAB, spawn NPC entities, create player accounts or write inventories/snapshots. Their presence is in-memory only.
 
 Stop/winner restoration clears all bots. The last real player leaving/disconnecting also clears the virtual cast and returns the arena to waiting. Real snapshots retain the existing restore-on-stop/reconnect/crash behavior. Free play and real-only Werewolf starts continue to use their normal rules. Authenticated `arena-practice-start` accepts `arenaId`, integer `botCount` (1–44, also constrained by the arena limits), and optional connected player `uuid`. Invalid limits and empty real-player games are rejected.
 
@@ -191,3 +191,25 @@ The werewolf screens follow the "Loup-Garou Vampyuyu" design guide (design-syste
 * **Screen.** The bossbar reads `☾ Night N · The Seer is awake · 12 s` (sleepers only see `You are asleep…`) in the colour of the acting role and drains with the turn; the action bar says what you must do now. The sidebar shows your role card (dealt face down, turned over after two seconds, greyed when you die), your team, night or day, the living count and the roles still in play; lovers also see their partner. The centre of the screen tells the story one beat at a time (night or day, then each death with its role, then who wakes up, for sleepers too), and between beats a steady line under the crosshair says whose turn it is and the time left (`☾ The Seer's turn · 12 s`, `☾ Your turn · 12 s`, `☀ Village vote · 30 s`). These titles stay on when ambience is off; only sounds and music go. The chat is a journal: a separator per night and day, `☠` death lines, and `Private ·` before what only you see.
 * **Card placement.** Minecraft anchors no text in the top-right corner, so the card sits on the sidebar title at the right edge, the guide's no-shader fallback. A text core shader could move it to the corner, but core shaders differ across the client versions this pack supports and a broken one makes the client drop the pack, so it needs testing in a real client first.
 
+
+## Werewolf game logs
+
+Every werewolf game writes its play-by-play to
+`plugins/NexusArenaEngine/logs/werewolf/<date>_<time>_<arena>_<game>.log` (the 300 newest files are
+kept) and mirrors each line to the server console under `[Werewolf]`; set
+`WEREWOLF_LOG_CONSOLE=false` to keep the console quiet. Each line carries the clock time, the time
+since the start, the game id, the day or night and the phase:
+
+```
+18:56:00.143 +01:12.4 [abcd1234] [Night 2 NIGHT] HUNT     The wolves' victim: Bob[SEER] · Ann→Bob, Zed→Bob
+```
+
+The journal covers the deal (every card and timer), each phase change and how long the last one
+lasted, every timer start and expiry (and when a presentation holds the clock), every click with
+the game's answer or the reason it was refused, menu clicks that were ignored (stale menu,
+presentation running), the vote tallies, the wolves' choice, guard and witch saves, every death with
+its cause, the hunter's shot, departures, the winner and the final roles, and the arena's stop.
+
+The panel lists the logs under **Arenas › Game logs** and downloads them; a running game's log
+downloads as far as it is written. The arena API serves them at `GET /arenas/logs` and
+`GET /arenas/logs/<name>`.

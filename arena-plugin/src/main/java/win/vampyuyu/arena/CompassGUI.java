@@ -571,9 +571,29 @@ public final class CompassGUI implements Listener {
         return;
       }
       if (s.game != null && !s.game.phase().equals(holder.phase)) {
+        if (click != null)
+          s.journal.log(
+              "IGNORED",
+              p.getName()
+                  + " clicked "
+                  + click
+                  + " in a menu left over from "
+                  + holder.phase
+                  + " (now "
+                  + s.game.phase()
+                  + "): the menu is refreshed");
         refresh(p);
         return;
       }
+      if (click != null
+          && s.game instanceof WerewolfGame
+          && (!s.presentation.isDone() || s.finishing))
+        s.journal.log(
+            "IGNORED",
+            p.getName()
+                + " clicked "
+                + click
+                + (s.finishing ? " while the arena is stopping" : " during a presentation"));
       if (click != null
           && s.game instanceof WerewolfGame wolf
           && s.presentation.isDone()
