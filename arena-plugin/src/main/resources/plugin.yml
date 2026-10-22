@@ -1,7 +1,7 @@
 name: NexusArenaEngine
 version: 1.4.0
 main: win.vampyuyu.arena.NexusArenaEngine
-api-version: '1.21'
+api-version: '26.3'
 folia-supported: true
 description: Isolated arenas, persistent player snapshots and cross-server invitations.
 authors: [Vampyuyu]

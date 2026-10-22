@@ -1,7 +1,7 @@
 name: VampyuyuLobby
 version: 0.4.0
 main: win.vampyuyu.lobby.LobbySelector
-api-version: '1.19'
+api-version: '26.3'
 depend: [VampyuyuNetwork]
 commands:
   lobbybuild:
