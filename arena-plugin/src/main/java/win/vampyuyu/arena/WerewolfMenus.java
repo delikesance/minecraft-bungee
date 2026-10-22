@@ -592,6 +592,179 @@ final class WerewolfMenus {
     }
   }
 
+  /** Painted background of the village overview (resource-pack/layout.py "menu_village"). */
+  static final char VILLAGE = '\uF000';
+
+  /**
+   * The village overview, opened whenever no role menu applies (waiting, the day debate, a sleeper,
+   * the dead): living heads on the ring, the game and the village in the bottom boxes, then the
+   * same card / timer / lock hotbar. Nothing here is clickable but the leave button.
+   *
+   * @param game null before the game starts
+   */
+  static List<Entry> village(
+      WerewolfGame game,
+      UUID viewer,
+      Map<UUID, String> names,
+      String arena,
+      long secondsLeft,
+      boolean leaveLocked) {
+    List<Entry> out = new ArrayList<>();
+    if (game == null) {
+      List<UUID> waiting =
+          names.keySet().stream()
+              .sorted(Comparator.comparing((UUID p) -> who(names, p).toLowerCase(Locale.ROOT)))
+              .toList();
+      int[] ring = slots(waiting.size());
+      for (int i = 0; i < waiting.size() && i < 54; i++)
+        out.add(
+            new Entry(
+                ring[i],
+                waiting.get(i),
+                null,
+                1,
+                waiting.get(i).equals(viewer),
+                lines(
+                    name(
+                        who(names, waiting.get(i))
+                            + (waiting.get(i).equals(viewer) ? " (you)" : "")),
+                    new Line("Ready", VILLAGER),
+                    BLANK,
+                    new Line("The game starts when an administrator is ready", INK_DIM)),
+                null));
+      out.add(
+          new Entry(
+              box(1),
+              null,
+              "moon",
+              1,
+              false,
+              withRules(
+                  arena,
+                  new Line("Waiting", VILLAGER),
+                  new Line("Roles are dealt when the game starts", INK_MUTED)),
+              null));
+      out.add(
+          new Entry(
+              box(6),
+              null,
+              "heart",
+              Math.max(1, names.size()),
+              false,
+              lines(new Line(names.size() + " in the village", 0xffffff)),
+              null));
+      out.add(
+          new Entry(
+              CARD,
+              null,
+              "card-back",
+              1,
+              false,
+              lines(
+                  new Line("Your card", INK),
+                  new Line("Dealt face down when the game starts", INK_MUTED)),
+              null));
+      timerAndLock(secondsLeft, leaveLocked, out);
+      out.removeIf(e -> e.raw() == TIMER); // No turn runs yet.
+      return out;
+    }
+    synchronized (game) {
+      List<UUID> pack = game.pack(viewer);
+      Map<UUID, String> seen = game.visions(viewer);
+      UUID partner = game.partner(viewer);
+      List<UUID> living =
+          game.alive().stream()
+              .sorted(Comparator.comparing((UUID p) -> who(names, p).toLowerCase(Locale.ROOT)))
+              .toList();
+      int[] ring = slots(living.size());
+      for (int i = 0; i < living.size() && i < 54; i++) {
+        UUID p = living.get(i);
+        Line state =
+            p.equals(viewer)
+                ? new Line(
+                    "You · " + roleName(game.role(p)), WerewolfPresentation.color(game.role(p)))
+                : pack.contains(p)
+                    ? new Line("A wolf of your pack", WEREWOLF)
+                    : p.equals(partner)
+                        ? new Line("♥ Your lover", CUPID)
+                        : seen.containsKey(p)
+                            ? new Line("✦ Seen: " + roleName(seen.get(p)), SEER)
+                            : new Line("Alive", VILLAGER);
+        out.add(
+            new Entry(
+                ring[i], p, null, 1, p.equals(viewer), lines(name(who(names, p)), state), null));
+      }
+      String phase = game.phase();
+      boolean night = game.night();
+      var view = WerewolfPresentation.view(game, viewer);
+      out.add(
+          new Entry(
+              box(1),
+              null,
+              night ? "moon" : "card-villager",
+              1,
+              false,
+              withRules(
+                  arena,
+                  new Line((night ? "☾ Night " : "☀ Day ") + game.round(), night ? SEER : VILLAGER),
+                  new Line(view.phase(), INK_MUTED),
+                  new Line(view.instruction(), INK)),
+              null));
+      int alive = game.alive().size(), all = names.size();
+      out.add(
+          new Entry(
+              box(6),
+              null,
+              "heart",
+              Math.max(1, alive),
+              false,
+              lines(
+                  new Line(alive + " / " + all + " alive", 0xffffff),
+                  new Line(
+                      all - alive == 0 ? "Nobody has died yet" : (all - alive) + " dead",
+                      INK_MUTED)),
+              null));
+      List<Line> roles = new ArrayList<>();
+      roles.add(new Line("Roles in the deal", 0xffffff));
+      int count = 0;
+      for (var e : game.composition().entrySet()) {
+        count += e.getValue();
+        roles.add(
+            new Line(
+                e.getValue() + " " + plural(e.getKey(), e.getValue()),
+                WerewolfPresentation.color(e.getKey())));
+      }
+      out.add(
+          new Entry(
+              box(7), null, "card-back", Math.max(1, count), false, List.copyOf(roles), null));
+      if (partner != null)
+        out.add(
+            new Entry(
+                box(8),
+                partner,
+                null,
+                1,
+                false,
+                lines(name(who(names, partner)), new Line("♥ Your lover", CUPID)),
+                null));
+      out.add(card(game, viewer, names));
+      timerAndLock(phase.equals("FINISHED") ? 0 : secondsLeft, leaveLocked, out);
+      return out;
+    }
+  }
+
+  /** The game's lines, then the arena's rules: the overview's only reading matter. */
+  private static List<Line> withRules(String arena, Line... head) {
+    List<Line> out = new ArrayList<>(List.of(head));
+    out.add(BLANK);
+    out.add(new Line(arena, 0xffffff));
+    out.add(new Line("The village wins once every wolf is dead", INK_MUTED));
+    out.add(new Line("The wolves win once no villager is left", INK_MUTED));
+    out.add(new Line("A tie eliminates nobody", INK_MUTED));
+    out.add(new Line("Your own items are stored until you leave", INK_DIM));
+    return List.copyOf(out);
+  }
+
   static String article(String role) {
     return role.equals("WEREWOLF") || role.equals("VILLAGER") ? "a " : "the ";
   }
@@ -605,6 +778,10 @@ final class WerewolfMenus {
       boolean leaveLocked,
       List<Entry> out) {
     out.add(card(game, viewer, names));
+    timerAndLock(secondsLeft, leaveLocked, out);
+  }
+
+  private static void timerAndLock(long secondsLeft, boolean leaveLocked, List<Entry> out) {
     out.add(
         new Entry(
             TIMER,

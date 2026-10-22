@@ -18,6 +18,9 @@ public final class CompassMenuHolder implements InventoryHolder {
   /** Role menu this window was opened as (its painted title), or null for the plain compass. */
   WerewolfMenus.Kind kind;
 
+  /** True for the werewolf village overview (WerewolfMenus.village). */
+  boolean village;
+
   /** Role-menu actions by raw slot: select:/aim:<uuid>, use:<ability> or leave. */
   final Map<Integer, String> clicks = new HashMap<>();
 

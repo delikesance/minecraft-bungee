@@ -87,11 +87,12 @@ class PackTest(unittest.TestCase):
     def test_plugin_uses_the_pack_codepoints_and_icons(self):
         java = ROOT / "arena-plugin/src/main/java/win/vampyuyu/arena"
         menus = (java / "WerewolfMenus.java").read_text()
-        for name in [n for n in layout.BACKGROUNDS if n in menus]:
-            match = re.search(r'"%s", \'\\u([0-9A-F]{4})\'' % name, menus)
-            self.assertIsNotNone(match, name)
-            self.assertEqual(int(match.group(1), 16), layout.BACKGROUNDS[name][0], name)
-        self.assertEqual(7, sum(name in menus for name in layout.BACKGROUNDS))
+        role_menus = re.findall(r'"(menu_\w+)", \'\\u([0-9A-F]{4})\'', menus)
+        self.assertEqual(7, len(role_menus))
+        for name, code in role_menus:
+            self.assertEqual(int(code, 16), layout.BACKGROUNDS[name][0], name)
+        village = re.search(r"VILLAGE = '\\u([0-9A-F]{4})'", menus)
+        self.assertEqual(int(village.group(1), 16), layout.BACKGROUNDS["menu_village"][0])
         hud = (java / "WerewolfHud.java").read_text()
         self.assertIn("List.of(%s)" % ", ".join(f'"{c}"' for c in layout.CARDS), " ".join(hud.split()).replace("( ", "("))
         icons = {p.stem for p in (PACK / "assets/vampyuyu/items/icon").glob("*.json")}
