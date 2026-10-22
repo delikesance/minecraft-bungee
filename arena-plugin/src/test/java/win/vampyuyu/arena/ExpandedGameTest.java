@@ -104,6 +104,21 @@ public class ExpandedGameTest {
   }
 
   @Test
+  public void bindingLoversQueuesAPrivateNoticeForEachOfThemOnce() {
+    var g = game(6, Map.of("WEREWOLF", 1, "CUPID", 1));
+    UUID cupid = who(g, "CUPID"), wolf = who(g, "WEREWOLF"), villager = who(g, "VILLAGER");
+    g.select(cupid, wolf);
+    assertTrue("nothing is announced after the first pick", g.drainNotices().isEmpty());
+    g.select(cupid, villager);
+    var notices = g.drainNotices();
+    assertEquals(Set.of(wolf, villager), notices.keySet());
+    assertTrue(notices.get(wolf).contains(villager.toString()));
+    assertTrue(notices.get(villager).contains(wolf.toString()));
+    assertFalse("the Cupid is not told unless chosen", notices.containsKey(cupid));
+    assertTrue("delivered once", g.drainNotices().isEmpty());
+  }
+
+  @Test
   public void mixedLoversHaveTheirOwnWinCondition() {
     var g = game(4, Map.of("WEREWOLF", 1, "CUPID", 1));
     UUID cupid = who(g, "CUPID"), wolf = who(g, "WEREWOLF");

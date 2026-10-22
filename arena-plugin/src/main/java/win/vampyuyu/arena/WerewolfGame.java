@@ -41,6 +41,7 @@ public final class WerewolfGame implements GamePreset {
   private final int discussion, vote, night;
   private final GameRules.Werewolf settings;
   private UUID firstLover, nightVictim;
+  private final Map<UUID, String> notices = new HashMap<>();
   private Phase phase = Phase.DISCUSSION, resume = Phase.DISCUSSION;
   private String winner = "";
 
@@ -124,6 +125,19 @@ public final class WerewolfGame implements GamePreset {
     return Map.copyOf(totals);
   }
 
+  private static String loveNotice(UUID partner) {
+    return "Cupid's arrow struck you: you are in love with "
+        + partner
+        + ". If either of you dies, both die. Only you two know it.";
+  }
+
+  @Override
+  public synchronized Map<UUID, String> drainNotices() {
+    Map<UUID, String> out = Map.copyOf(notices);
+    notices.clear();
+    return out;
+  }
+
   public synchronized String help(UUID p) {
     String bond =
         lovers.containsKey(p)
@@ -184,6 +198,8 @@ public final class WerewolfGame implements GamePreset {
         throw new IllegalArgumentException("Choose a different second lover");
       lovers.put(firstLover, target);
       lovers.put(target, firstLover);
+      notices.put(firstLover, loveNotice(target));
+      notices.put(target, loveNotice(firstLover));
       phase = Phase.DISCUSSION;
       return "The lovers are bound. Only they know their bond.";
     }

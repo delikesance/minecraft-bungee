@@ -200,6 +200,26 @@ public final class CompassGUI implements Listener {
 
   private static final TextColor GOLD = TextColor.color(0xe9d99b);
 
+  /** Pushes private game notices (the lovers' bond) to their recipients only, with a title and sound. */
+  private void deliverNotices(ArenaSession s) {
+    for (var notice : s.game.drainNotices().entrySet()) {
+      Player target = Bukkit.getPlayer(notice.getKey());
+      if (target == null) continue;
+      String message = friendly(notice.getValue(), s);
+      plugin.onPlayer(
+          target,
+          () -> {
+            target.sendMessage(text(message, NamedTextColor.LIGHT_PURPLE));
+            target.showTitle(
+                net.kyori.adventure.title.Title.title(
+                    text("♥ In love", NamedTextColor.LIGHT_PURPLE),
+                    text("Check your compass for your partner", NamedTextColor.GRAY)));
+            target.playSound(target.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, .5f, 1.6f);
+            return null;
+          });
+    }
+  }
+
   private static String friendly(String text, ArenaSession s) {
     for (var entry : s.players.entrySet())
       text = text.replace(entry.getKey().toString(), entry.getValue());
@@ -427,6 +447,7 @@ public final class CompassGUI implements Listener {
                   .select(p.getUniqueId(), target)
                   .replace(target.toString(), s.players.getOrDefault(target, "Player"));
           p.sendMessage(text(response, roleColor(s.game.role(p.getUniqueId()))));
+          deliverNotices(s);
           plugin.arenas.phaseChanged(s);
           refresh(p);
         } catch (IllegalArgumentException ex) {

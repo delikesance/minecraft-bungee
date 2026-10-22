@@ -44,5 +44,10 @@ public interface GamePreset {
 
   default void visit(UUID player, double x, double y, double z) {}
 
+  /** Private messages the game wants delivered right now, once (e.g. Cupid's arrow). */
+  default Map<UUID, String> drainNotices() {
+    return Map.of();
+  }
+
   default void finish() {}
 }
