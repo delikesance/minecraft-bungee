@@ -144,6 +144,21 @@ public class ExpandedGameTest {
   }
 
   @Test
+  public void aBallotOnAVictimWhoDiesOfGriefDoesNotEndTheHunt() {
+    var g = game(8, Map.of("WEREWOLF", 2, "CUPID", 1));
+    UUID cupid = who(g, "CUPID");
+    var wolves = g.alive().stream().filter(p -> g.role(p).equals("WEREWOLF")).sorted().toList();
+    var villagers = g.alive().stream().filter(p -> g.role(p).equals("VILLAGER")).sorted().toList();
+    g.select(cupid, wolves.get(1));
+    g.select(cupid, villagers.get(0));
+    g.select(wolves.get(0), villagers.get(0));
+    g.remove(wolves.get(1)); // Their lover, the pack's target, dies of grief.
+    assertEquals("the surviving wolf picks again", "NIGHT", g.phase());
+    g.select(wolves.get(0), villagers.get(1));
+    assertFalse(g.alive().contains(villagers.get(1)));
+  }
+
+  @Test
   public void runningOutOfTimeEndsTheGameWithoutAWinner() {
     var g = game(5, Map.of("WEREWOLF", 1));
     g.finish();

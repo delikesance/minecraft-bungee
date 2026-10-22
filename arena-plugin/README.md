@@ -60,11 +60,11 @@ It uses disposable UUIDs and correctly signed private forwarding, never changes 
 
 ## Expanded casts and free-play objectives (1.1)
 
-The panel's arena editor includes **Automatic cast** or exact role counts. Automatic casting adds Werewolf, Seer, Cupid, Hunter, Witch and Guard as places allow, then fills with Villagers. Special roles appear at most once. Custom counts must fit the minimum participant count, with wolves strictly in the minority. The GUI always shows the viewer's private role instructions.
+The panel's arena editor includes **Automatic cast** or exact role counts. Automatic casting adds one Werewolf per four players and a Seer, then the Witch from 6 players, the Hunter from 7, Cupid from 8 and the Guard from 10, and fills the rest with Villagers. Special roles appear at most once. Custom counts must fit the minimum participant count, with wolves strictly in the minority. The GUI always shows the viewer's private role instructions.
 
-* **Cupid** selects two lovers in the opening phase. A lover's elimination also eliminates their partner. A surviving mixed wolf/village couple has a Lovers victory when only they remain.
+* **Cupid** selects two lovers on the opening night; if time runs out first, nobody is bound and Cupid is told. A lover's elimination also eliminates their partner. A surviving mixed wolf/village couple has a Lovers victory when only they remain.
 * **Hunter** gets a timed final-shot phase after game elimination, including elimination through a lover. Winner resolution waits for the shot or its timeout. A disconnected hunter forfeits the shot.
-* **Witch** gets a potion phase after the wolf hunt: one heal and one poison for the entire game. The healing button saves the wolf victim; clicking a living head selects a poison target. Both resolve at dawn.
+* **Witch** gets a potion phase after the wolf hunt: one heal and one poison for the entire game. While she holds the healing potion she is shown the wolf victim (even one the Guard protects) and can save them; poisoning takes two clicks on the same living head. Both resolve at dawn. A living witch is called every night, even with empty flasks.
 * **Guard** protects one player each night, including themselves, but cannot protect the same target on consecutive nights.
 * **Seer**, **Werewolf** and **Villager** retain their inspection, hunt and day-vote actions. Sleeping phases keep living non-wolves silent; observers cannot communicate with living players through arena chat.
 
@@ -95,9 +95,9 @@ Stop/winner restoration clears all bots. The last real player leaving/disconnect
 
 ## Village immersion and in-game administration (1.3)
 
-Werewolf nights now run **Guard → Seer → Wolves → Witch**, skipping absent/dead roles and a witch with no remaining potions. `nightSeconds` applies separately to Guard, Seer and Wolves. Cupid and Hunter retain their special phases. Living sleepers receive blindness. Private role cards and actions use role colors; public messages never reveal a role through its color.
+Werewolf nights now run **Guard → Seer → Wolves → Witch** (after Cupid on the opening night), skipping absent/dead roles; a living witch is always called, even with empty flasks. The Guard and Seer turns end as soon as they act. `nightSeconds` applies separately to Guard, Seer and Wolves. Cupid and Hunter retain their special phases. Living sleepers receive blindness. Private role cards and actions use role colors; public messages never reveal a role through its color.
 
-The wolves gather at their turn's beginning. **The last living wolf's vote closes the hunt immediately**; votes can change until then. All wolves return automatically to their assigned homes at the last vote or timeout. A tie or no ballots produces no victim. Teleports must finish before the next phase accepts actions; failures interrupt the event and restore players.
+The wolves gather at their turn's beginning. **The hunt closes as soon as every living wolf picks the same victim**; votes can change until then. Otherwise the most-voted victim dies at the timeout. All wolves return automatically to their assigned homes when the hunt ends. A tie or no ballots produces no victim. Teleports must finish before the next phase accepts actions; failures interrupt the event and restore players.
 
 | Admin command | Behavior |
 | --- | --- |

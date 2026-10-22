@@ -163,8 +163,8 @@ public final class WerewolfGame implements GamePreset {
           case CUPID -> "Opening night: select two living players to bind as lovers.";
           case HUNTER -> "If eliminated, choose one living player for your final shot.";
           case WITCH ->
-              "Potion phase: you see the wolves' victim. Heal saves them; click a head twice to"
-                  + " poison. Each potion works once per game.";
+              "Potion phase: while you hold the healing potion, you see the wolves' victim and can"
+                  + " save them; click a head twice to poison. Each potion works once per game.";
           case GUARD ->
               "At night, protect one player, including yourself. Never the same target twice in a"
                   + " row. Your choice is final.";
@@ -314,8 +314,6 @@ public final class WerewolfGame implements GamePreset {
   public synchronized void remove(UUID p) {
     eliminate(p, false);
     hunters.remove(p);
-    ballots.remove(p);
-    ballots.values().removeIf(p::equals);
     guards.remove(p);
     poisons.remove(p);
     poisonAims.remove(p);
@@ -350,7 +348,9 @@ public final class WerewolfGame implements GamePreset {
 
   private void eliminate(UUID p, boolean shot) {
     if (p == null || !alive.remove(p)) return;
-    ballots.remove(p); // Only the living decide a vote.
+    // Only the living vote, and only for the living.
+    ballots.remove(p);
+    ballots.values().removeIf(p::equals);
     if (shot && roles.get(p) == Role.HUNTER) hunters.addLast(p);
     UUID partner = lovers.get(p);
     if (partner != null) eliminate(partner, true);
