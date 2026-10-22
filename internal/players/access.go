@@ -9,7 +9,7 @@ import (
 
 // Role commands are deliberately finite. No wildcard, arbitrary permission,
 // console dispatch, OP, gamemode, execute, or permission-management grants.
-var AllowedCommands = []string{"ban", "kick", "pardon", "fly"}
+var AllowedCommands = []string{"ban", "kick", "pardon", "fly", "invsee"}
 
 func ValidCommand(command string) bool {
 	for _, v := range AllowedCommands {

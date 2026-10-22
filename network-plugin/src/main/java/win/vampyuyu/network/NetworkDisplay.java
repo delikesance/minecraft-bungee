@@ -105,6 +105,7 @@ public final class NetworkDisplay extends JavaPlugin implements Listener {
             getServer().getPluginManager().disablePlugin(this);
             return;
         }
+        new InventoryViewer(this);
         access = new RoleAccess(this, server.equals("creative") ? RoleAccess.CREATIVE_BUILDER : Set.of());
         try { management = new ManagementApi(this, token); }
         catch (IOException exception) {
